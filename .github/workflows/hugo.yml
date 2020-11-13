@@ -20,3 +20,7 @@ jobs:
         target: './' 
 
     - name: Commit & Push changes
+      run: |
+        git add docs
+        git commit -m 'hugo build, github run id: $GITHUB_RUN_ID'
+        git push
