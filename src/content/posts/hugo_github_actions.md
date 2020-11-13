@@ -4,11 +4,11 @@ categories:
 title: "How to setup Hugo builds with GitHub Actions"
 description: "A yml file for quick setup"
 summary: "On how to have automatic builds with GitHub Actions for a GitHub Pages hosted Hugo powered static site, like this one."
-date: 2020-11-13T23:59:59+01:00
+date: 2020-11-12T23:59:59+01:00
 draft: false
 ---
 
-#### How to setup automatic Hugo builds with GitHub Actions
+### How to setup automatic Hugo builds with GitHub Actions
 
 Basic directory structure must be, for GitHub Pages:
 ```
