@@ -17,7 +17,7 @@ jobs:
       uses: klakegg/actions-hugo@1.0.0
       with:
         source: 'src/'
-        target: './' 
+        target: 'docs/' 
 
     - name: Commit & Push changes
       run: |
