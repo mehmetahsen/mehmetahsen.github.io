@@ -23,6 +23,7 @@ jobs:
       run: |
         git config --global user.email "mehmet.ahsen@outlook.com"
         git config --global user.name "Mehmet Ahsen"
+        git status
         git add docs
-        git commit -m "hugo build, github run id: $GITHUB_RUN_ID"; [ $? -eq 1 ]  || exit 0
+        git commit -m "hugo build, github run id: $GITHUB_RUN_ID"; [ $? -eq 1 ] || exit 0
         git push
