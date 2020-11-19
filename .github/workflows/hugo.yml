@@ -16,11 +16,12 @@ jobs:
     - name: Build
       uses: klakegg/actions-hugo@1.0.0
       with:
-        source: 'src/'
-        target: 'docs/' 
+        source: 'src'
+        target: 'docs' 
 
     - name: Commit & Push changes
       run: |
+        tree -L 2
         git config --global user.email "mehmet.ahsen@outlook.com"
         git config --global user.name "Mehmet Ahsen"
         git status
