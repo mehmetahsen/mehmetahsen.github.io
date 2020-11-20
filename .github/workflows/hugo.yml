@@ -19,6 +19,7 @@ jobs:
         source: 'src'
         target: 'docs'
         env:    'production'
+        image:  'busybox-onbuild'
 
     - name: Commit & Push changes
       run: |
