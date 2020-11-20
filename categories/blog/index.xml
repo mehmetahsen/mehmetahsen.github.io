@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>blog on Mehmet Ahsen</title>
+    <link>https://ahsen.me/categories/blog/</link>
+    <description>Recent content in blog on Mehmet Ahsen</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Fri, 20 Nov 2020 03:17:00 +0100</lastBuildDate><atom:link href="https://ahsen.me/categories/blog/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>How to setup Hugo builds with GitHub Actions</title>
+      <link>https://ahsen.me/posts/hugo_github_actions/</link>
+      <pubDate>Fri, 20 Nov 2020 03:17:00 +0100</pubDate>
+      
+      <guid>https://ahsen.me/posts/hugo_github_actions/</guid>
+      <description>On how to have automatic builds with GitHub Actions for a GitHub Pages hosted Hugo powered static site, like this one.</description>
+    </item>
+    
+    <item>
+      <title>How to setup Hugo with GitHub Pages from scratch</title>
+      <link>https://ahsen.me/posts/ilk/</link>
+      <pubDate>Thu, 15 Oct 2020 20:59:59 +0200</pubDate>
+      
+      <guid>https://ahsen.me/posts/ilk/</guid>
+      <description>Quick links and notes on how this blog came to be</description>
+    </item>
+    
+  </channel>
+</rss>
