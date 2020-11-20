@@ -17,7 +17,7 @@ jobs:
         submodules:  true
 
     - name: Create a worktree
-      run: git worktree add -B gh-pages public origin/gh-pages
+      run: git worktree add -B gh-pages public
 
     - name: Build
       uses: klakegg/actions-hugo@1.0.0
