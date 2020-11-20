@@ -28,6 +28,7 @@ Basic directory structure must be, for GitHub Pages:
 ```
 git checkout -b gh-pages
 rm -rf * # dangerous
+echo ahsen.me > CNAME
 git add --all
 git push --set-upstream origin gh-pages
 ```
@@ -63,8 +64,7 @@ jobs:
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
-        git status
-        echo ahsen.me > public/CNAME # optional custom domain
+        cd public
         git add .
         git commit -m "hugo build, github run id: $GITHUB_RUN_ID"
         git push origin gh-pages
