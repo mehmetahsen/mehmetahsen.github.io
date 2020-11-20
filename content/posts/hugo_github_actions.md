@@ -20,7 +20,16 @@ Basic directory structure must be, for GitHub Pages:
   themes
   # Above dicretories & files are from Hugo
   README.md  # say hi
-  .github/workflows/hugo.yml # this is the file below
+  .github/workflows/hugo.yml # this is the file down below
+```
+
+#### Creating gh-pages branch
+
+```
+git checkout -b gh-pages
+rm -rf * # dangerous
+git add --all
+git push --set-upstream origin gh-pages
 ```
 
 ##### hugo.yml
