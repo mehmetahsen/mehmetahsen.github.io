@@ -1,8 +1,8 @@
 baseURL = "https://ahsen.me/"
+
 languageCode = "en-us"
 title = "Mehmet Ahsen"
 theme = "anatole"
-publishDir = "../docs/"
 
 #anatole theme params
 [params]

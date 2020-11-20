@@ -28,7 +28,10 @@ Basic directory structure must be, for GitHub Pages:
 ```
 git checkout -b gh-pages
 rm -rf * # dangerous
+<<<<<<< HEAD
 echo ahsen.me > CNAME
+=======
+>>>>>>> 0424bccd207efbf94fee14fe495824e5f9497ed9
 git add --all
 git push --set-upstream origin gh-pages
 ```
