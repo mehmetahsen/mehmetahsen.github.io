@@ -64,7 +64,8 @@ jobs:
         git config user.name github-actions
         git config user.email github-actions@github.com
         git status
-        cd public && git add .
+        echo ahsen.me > public/CNAME # optional custom domain
+        git add .
         git commit -m "hugo build, github run id: $GITHUB_RUN_ID"
         git push origin gh-pages
 ```
