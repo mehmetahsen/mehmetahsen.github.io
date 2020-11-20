@@ -1,6 +1,9 @@
-name: Hugo
+name: Hugo builder and deployer
 
-on: [push]
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   build:
@@ -13,20 +16,17 @@ jobs:
         fetch-depth: 0
         submodules:  true
 
+    - name: Create a worktree
+      run: git worktree add -B gh-pages public origin/gh-pages
+
     - name: Build
       uses: klakegg/actions-hugo@1.0.0
-      with:
-        source: 'src'
-        target: 'docs'
-        env:    'production'
-        image:  'ext-alpine'
 
     - name: Commit & Push changes
       run: |
-        ls -lah *
         git config user.name github-actions
         git config user.email github-actions@github.com
         git status
-        git add docs
-        git commit -m "hugo build, github run id: $GITHUB_RUN_ID"; [ $? -eq 1 ] || exit 0
-        git push
+        cd public && git add .
+        git commit -m "hugo build, github run id: $GITHUB_RUN_ID"
+        git push origin gh-pages
