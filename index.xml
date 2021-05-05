@@ -16,14 +16,5 @@
       <description>On how to have automatic builds with GitHub Actions for a GitHub Pages hosted Hugo powered static site, like this one.</description>
     </item>
     
-    <item>
-      <title>How to setup Hugo with GitHub Pages from scratch</title>
-      <link>https://mehmetahsen.de/posts/ilk/</link>
-      <pubDate>Thu, 15 Oct 2020 20:59:59 +0200</pubDate>
-      
-      <guid>https://mehmetahsen.de/posts/ilk/</guid>
-      <description>Quick links and notes on how this blog came to be</description>
-    </item>
-    
   </channel>
 </rss>
