@@ -5,7 +5,7 @@ title: "How to setup Hugo with GitHub Pages from scratch"
 description: "Quick links and notes on how this blog came to be"
 summary: "Quick links and notes on how this blog came to be"
 date: 2020-10-15T20:59:59+02:00
-draft: false
+draft: true
 ---
 
 #### How to setup Hugo with GitHub Pages from scratch
