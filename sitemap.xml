@@ -1,39 +1,25 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  
   <url>
-    <loc>https://ahsen.me/categories/blog/</loc>
+    <loc>https://mehmetahsen.de/categories/blog/</loc>
     <lastmod>2020-11-20T03:17:00+01:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://ahsen.me/categories/</loc>
+  </url><url>
+    <loc>https://mehmetahsen.de/categories/</loc>
     <lastmod>2020-11-20T03:17:00+01:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://ahsen.me/posts/hugo_github_actions/</loc>
+  </url><url>
+    <loc>https://mehmetahsen.de/posts/hugo_github_actions/</loc>
     <lastmod>2020-11-20T03:17:00+01:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://ahsen.me/</loc>
+  </url><url>
+    <loc>https://mehmetahsen.de/</loc>
     <lastmod>2020-11-20T03:17:00+01:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://ahsen.me/posts/</loc>
+  </url><url>
+    <loc>https://mehmetahsen.de/posts/</loc>
     <lastmod>2020-11-20T03:17:00+01:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://ahsen.me/posts/ilk/</loc>
+  </url><url>
+    <loc>https://mehmetahsen.de/posts/ilk/</loc>
     <lastmod>2020-10-15T20:59:59+02:00</lastmod>
+  </url><url>
+    <loc>https://mehmetahsen.de/tags/</loc>
   </url>
-  
-  <url>
-    <loc>https://ahsen.me/tags/</loc>
-  </url>
-  
 </urlset>
