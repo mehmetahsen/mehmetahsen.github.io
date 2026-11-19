@@ -1,0 +1,24 @@
+---
+import { getCollection } from 'astro:content';
+import Grid from '../components/Grid.astro';
+import Hero from '../components/Hero.astro';
+import PortfolioPreview from '../components/PortfolioPreview.astro';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const projects = (await getCollection('projects')).sort(
+	(a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf(),
+);
+---
+
+<BaseLayout title="Projects | Mehmet Ahsen" description="Open-source projects by Mehmet Ahsen">
+	<main class="wrapper stack gap-8">
+		<Hero title="Projects" align="start" />
+		<Grid>
+			{projects.map((project) => (
+				<li>
+					<PortfolioPreview project={project} />
+				</li>
+			))}
+		</Grid>
+	</main>
+</BaseLayout>

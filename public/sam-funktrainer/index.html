@@ -1,0 +1,1573 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAM-Funktrainer</title>
+<style>
+  :root { color-scheme: light dark; font: 16px/1.4 system-ui, sans-serif; }
+  body { margin: 0 auto; max-width: 72rem; padding: 1rem; display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) 16rem; }
+  header, #status, .wide { grid-column: 1 / -1; }
+  header { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+  h1 { font-size: 1.2rem; margin: 0 auto 0 0; }
+  h2 { font-size: 1rem; margin: 0 0 .3rem; }
+  #view { width: 100%; max-height: 80vh; aspect-ratio: 1; background: #999; border-radius: .5rem; }
+  #diagram { width: 100%; height: auto; }
+  #status { margin: 0; min-height: 1.4em; }
+  .warn { color: #c50; font-weight: 600; }
+  .danger { border: 2px solid #c22; background: color-mix(in srgb, #c22 12%, transparent); padding: .6rem .8rem; border-radius: .3rem; }
+  .dangerBtn { color: #c22; font-weight: 600; }
+  ol { margin: 0; padding-left: 2rem; max-height: 60vh; overflow: auto; font-variant-numeric: tabular-nums; }
+  button, select, input { font: inherit; padding: .3rem .6rem; }
+  input[type=number] { width: 5.5rem; }
+  summary { cursor: pointer; font-weight: 600; margin-bottom: .75rem; }
+  #help { border: 1px solid color-mix(in srgb, currentColor 25%, transparent); border-radius: .4rem; padding: .5rem .9rem; }
+  #help[open] summary { margin-bottom: .25rem; }
+  #help h3 { font-size: .95rem; margin: .9rem 0 .2rem; }
+  #help p, #help li { margin: .2rem 0; }
+  #help code { font-size: .85em; overflow-wrap: anywhere; }
+  footer { grid-column: 1 / -1; font-size: .85rem; opacity: .8; }
+  .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); margin-bottom: 1rem; }
+  .cards > section p { margin: .4rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+  th, td { text-align: left; padding: .1rem .5rem .1rem 0; vertical-align: top; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+  th { font-weight: 400; opacity: .75; }
+  td, #log { font-family: ui-monospace, monospace; }
+  td input, td select { padding: 0 .3rem; }
+  .changed { outline: 2px solid #c50; }
+  #log { height: 22rem; overflow: auto; margin: .5rem 0 0; padding: .5rem; font-size: .8rem; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: .3rem; white-space: pre; }
+  .logbar { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+  .logbar h2 { margin: 0 auto 0 0; }
+  #shots li { margin: .1rem 0; }
+  #shots button { padding: 0 .4rem; }
+  #shots button[aria-pressed=true] { outline: 2px solid #a4f; }
+  #name { width: 100%; box-sizing: border-box; }
+  #tSessions td, #tBackups td, #tCustom td { font-family: inherit; }
+  #tSessions button, #tBackups button, #tCustom button { padding: 0 .5rem; margin-right: .25rem; }
+  .form label { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin: .2rem 0; }
+  dialog { max-width: 40rem; }
+  @media (max-width: 40rem) { body { grid-template-columns: 1fr; } }
+</style>
+<header>
+  <h1>SAM-Funktrainer</h1>
+  <label>Target <select id="target"></select></label>
+  <label title="Added to the angle stored in the sensor">Mount angle ° <input id="angle" type="number" step="5" value="0"></label>
+  <label title="Alternative position formula from the original software"><input id="formula" type="checkbox"> New formula</label>
+  <button id="connect">Connect</button>
+</header>
+<p id="status" role="status">Not connected. Needs Chrome, Edge or another Chromium browser.</p>
+<details id="help" class="wide">
+  <summary>How to use</summary>
+  <h3>What you need</h3>
+  <ul>
+    <li>Chrome, Edge or another Chromium-based browser on Windows, macOS, Linux, ChromeOS or Android.
+        Firefox, Safari and all browsers on iPhone and iPad cannot talk to USB devices.</li>
+    <li>The SAM-Funktrainer receiver plugged into this computer, the target unit powered, and the gun sensor charged and switched on.</li>
+  </ul>
+  <h3>One-time setup</h3>
+  <ul>
+    <li><strong>Windows:</strong> the receiver needs Windows' generic WinUSB driver.
+      <ol>
+        <li>Download <a href="https://zadig.akeo.ie/" target="_blank" rel="noopener">Zadig</a> and start it.</li>
+        <li>Choose <em>Options → List All Devices</em>, then pick <em>SAM-Funktrainer</em> from the list
+            (USB ID <code>0ADC 0005</code>).</li>
+        <li>Make sure the target driver box says <em>WinUSB</em> and click <em>Replace Driver</em> (or <em>Install Driver</em>).</li>
+        <li>Unplug the receiver and plug it in again, then reload this page.</li>
+      </ol>
+      The old Knestel software will no longer find the receiver on this computer. To undo, open Device Manager,
+      uninstall the SAM-Funktrainer device with "delete the driver", and replug it.</li>
+    <li><strong>Linux:</strong> allow your user to access the receiver, then replug it:<br>
+      <code>echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="0adc", ATTR{idProduct}=="0005", MODE="0660", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/70-sam-funktrainer.rules</code><br>
+      Chromium installed as a snap also needs <code>sudo snap connect chromium:raw-usb</code>.</li>
+    <li><strong>macOS, ChromeOS, Android:</strong> nothing to do. On Android, connect the receiver with a USB-OTG adapter.</li>
+  </ul>
+  <h3>Shooting</h3>
+  <ol>
+    <li>Click <strong>Connect</strong> and choose the SAM-Funktrainer. The line under the title tells you what to fix if something is missing.</li>
+    <li>Below about 6 m set the switch on the target unit to "near", further away to "far".</li>
+    <li>Choose your target type. To shoot at paper, print a target at the right size under <em>Targets and printing</em>.</li>
+    <li>If the dot moves the wrong way when you move the gun, change <strong>Mount angle</strong> in steps of 90°.</li>
+    <li>Fire a few shots at the centre and click <strong>Centre on shots</strong>; this is the quick adjustment.</li>
+    <li>Click a shot's ring value to see its aim trace and diagrams.</li>
+  </ol>
+  <h3>Your data</h3>
+  <p>Shots are saved automatically in this browser only. Use <strong>JSON</strong> under <em>Saved sessions</em> to keep a copy or move it to another computer.</p>
+  <h3>If it does not work</h3>
+  <ul>
+    <li><strong>The receiver is not in the list:</strong> on Windows, install the WinUSB driver as above; on Linux, add the rule above and replug.</li>
+    <li><strong>"Access denied" or "unable to claim":</strong> another program or browser tab is using the receiver. Close it, replug, try again.</li>
+    <li><strong>The sensor does not answer:</strong> switch it on and check its battery. If it still does not answer, use
+        <em>Search for the sensor</em> under <em>Device settings</em>.</li>
+  </ul>
+</details>
+<canvas id="view" width="900" height="900" aria-label="Target with aim trace and shots"></canvas>
+<section>
+  <p><input id="name" placeholder="Session name (shooter, note)" aria-label="Session name"></p>
+  <p><strong id="total">0.0</strong> rings, <span id="count">0</span> shots</p>
+  <p><button id="center" title="Shift the centre to the mean of all shots (quick adjustment)">Centre on shots</button>
+     <button id="newSession" title="Start an empty session; the current one stays saved">New session</button></p>
+  <ol id="shots"></ol>
+</section>
+
+<section id="diagramBox" class="wide" hidden>
+  <h2 id="diagramTitle"></h2>
+  <canvas id="diagram" width="1100" height="420" aria-label="X, Y and trigger force of the selected shot over time"></canvas>
+</section>
+
+<section class="wide">
+  <div class="logbar">
+    <h2>Saved sessions</h2>
+    <button id="importBtn" title="Load a session from a JSON file exported here">Import…</button>
+    <input id="importFile" type="file" accept=".json,application/json" hidden>
+  </div>
+  <table id="tSessions"></table>
+</section>
+
+<section class="wide">
+  <div class="logbar">
+    <h2>Live output to other software</h2>
+    <label>WebSocket server <input id="wsUrl" placeholder="192.168.1.20:8765" size="24" title="Address of a WebSocket server that receives the data, as host:port or ws://host:port/path"></label>
+    <label>Positions <select id="wsRate"><option value="100">100 per second</option><option value="20">20 per second</option><option value="10">10 per second</option><option value="0">none (shots only)</option></select></label>
+    <label><input id="wsOn" type="checkbox"> Stream</label>
+    <span id="wsState" role="status">off</span>
+  </div>
+</section>
+
+<details class="wide">
+  <summary>Targets and printing</summary>
+  <div class="cards">
+    <section>
+      <h2>Print</h2>
+      <p>Prints the selected target or the calibration sheet at the size that matches your real distance to the target.
+         Print at 100 % ("actual size", not "fit to page"); the ruler on the sheet must measure exactly 100 mm.</p>
+      <p><label>Real distance (m) <input id="printDist" type="number" min="1" max="50" step="0.5" value="10"></label></p>
+      <p><button id="printTarget">Print target</button> <button id="printCal">Print calibration sheet</button></p>
+    </section>
+    <section>
+      <h2>Add a custom target</h2>
+      <form id="customForm" class="form">
+        <label>Name <input name="name" required maxlength="60"></label>
+        <label>Rings (the ten is this number) <input name="rings" type="number" min="1" max="20" value="10" required></label>
+        <label>Lowest scoring ring <input name="lowest" type="number" min="1" max="20" value="1" required></label>
+        <label>Ten diameter (mm) <input name="d10" type="number" min="0" step="any" required></label>
+        <label>Ring width (mm) <input name="ringWidth" type="number" min="0.01" step="any" required></label>
+        <label>Black diameter (mm) <input name="black" type="number" min="0" step="any" required></label>
+        <label>Bullet diameter (mm) <input name="pellet" type="number" min="0" step="any" required></label>
+        <label>Nominal distance (m) <input name="dist" type="number" min="1" step="any" value="10" required></label>
+        <label><span>Scored by the hole centre</span> <input name="centre" type="checkbox"></label>
+        <p><button>Add target</button> <span id="customMsg" role="status"></span></p>
+      </form>
+    </section>
+    <section>
+      <h2>Custom targets</h2>
+      <table id="tCustom"></table>
+    </section>
+  </div>
+</details>
+
+<details id="device" class="wide">
+  <summary>Device settings</summary>
+  <p class="danger"><strong>Warning: these functions change settings stored inside the receiver and the gun sensor.</strong>
+    They follow what the original software does, but this project has not tested them on real hardware.
+    A wrong value can leave the sensor unreachable (radio channel) or the system unusable until the old values are
+    written back, and no factory reset is known. The settings are backed up in this browser automatically when they are
+    read and again right before every write. Export a backup to a file before you start.</p>
+  <p id="devStatus" role="status"></p>
+  <div class="cards">
+    <section>
+      <h2>Shot detection sensitivity</h2>
+      <p>How weak a trigger click may be and still count as a shot. Lower it if loading the gun triggers shots.
+         The original software offers 0–100 %, default 85.</p>
+      <p>In use: <span id="sensNow">–</span>, power-on default: <span id="sensDef">–</span></p>
+      <p><label>New value <input id="sensNew" type="number" min="0" max="100"></label>
+         <label><input id="sensStore" type="checkbox"> also as power-on default</label></p>
+      <p><button id="sensApply">Apply…</button></p>
+    </section>
+    <section>
+      <h2>Radio channel</h2>
+      <p>Receiver and sensor must use the same channel. Change it only to avoid interference from another trainer nearby.</p>
+      <p>Receiver: <span id="chRecv">–</span>, sensor: <span id="chSens">–</span></p>
+      <p><label>New channel <select id="chNew"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+         <button id="chApply" class="dangerBtn">Change channel…</button></p>
+      <p><button id="chSearch">Search for the sensor</button><br>
+         Tries channels 1–4 on the receiver until the sensor answers. Changes only the receiver's current channel,
+         not its stored setting. Use it when the sensor is not reachable.</p>
+    </section>
+    <section>
+      <h2>Calibration</h2>
+      <p>Print the calibration sheet ("Targets and printing") and fix it on the target unit. Aim at each mark in turn,
+         hold still, and press Capture or fire a shot. Keep "New formula" and "Mount angle" unchanged afterwards.</p>
+      <p id="calStep">Not running.</p>
+      <p><button id="calStart">Start</button> <button id="calCapture" disabled>Capture</button> <button id="calCancel" disabled>Cancel</button></p>
+      <table id="tCal"></table>
+      <p><button id="calUse" disabled title="Use the result in this browser only; nothing is written to the sensor">Use in this page only</button>
+         <button id="calWrite" disabled class="dangerBtn">Write to sensor…</button></p>
+      <p><span id="calPage"></span> <button id="calClear" hidden>Remove page calibration</button></p>
+    </section>
+    <section>
+      <h2>Backups of device settings</h2>
+      <p>Taken when the settings are read and differ from the last backup, and right before every write.
+         Kept in this browser; the first backup of each device is never removed automatically.</p>
+      <p><button id="bkNow">Back up now</button> <button id="bkExport">Export all</button>
+         <button id="bkImportBtn">Import…</button><input id="bkImport" type="file" accept=".json,application/json" hidden></p>
+      <table id="tBackups"></table>
+    </section>
+  </div>
+  <section>
+    <h2>Stored variables</h2>
+    <p>Every setting stored in the receiver and the sensor. Changed fields are outlined; nothing is written before you confirm.</p>
+    <div class="cards" style="align-items: start">
+      <table id="eReceiver"></table>
+      <table id="eSensor"></table>
+    </div>
+    <p><button id="writeVars" class="dangerBtn">Write changes…</button> <button id="resetVars">Undo edits</button></p>
+  </section>
+</details>
+
+<details id="tech" class="wide">
+  <summary>Technical details</summary>
+  <div class="cards">
+    <section><h2>Link</h2><table id="tLink"></table></section>
+    <section><h2>Live sample</h2><table id="tLive"></table></section>
+    <section><h2>Traffic</h2><table id="tStats"></table></section>
+    <section><h2>USB device</h2><table id="tUsb"></table></section>
+    <section><h2>Receiver variables</h2><table id="tReceiver"></table></section>
+    <section><h2>Sensor variables</h2><table id="tSensor"></table></section>
+  </div>
+  <div class="logbar">
+    <h2>Packet log</h2>
+    <button id="refresh" title="Stop the stream, read every variable again, restart the stream">Re-read variables</button>
+    <label><input id="logSamples" type="checkbox"> Log samples (100/s)</label>
+    <label><input id="pause" type="checkbox"> Pause</label>
+    <button id="copyLog">Copy</button>
+    <button id="clearLog">Clear</button>
+  </div>
+  <pre id="log" tabindex="0" aria-label="Packet log"></pre>
+</details>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <h2 id="dlgTitle"></h2>
+    <p id="dlgWarn" class="danger"><strong>This writes into the device and stays there.</strong> It has not been tested on
+      real hardware by this project. A wrong value can make the sensor unreachable or the system unusable until the old
+      values are written back. A backup of the current settings is taken right before writing.</p>
+    <table id="dlgTable"></table>
+    <p id="dlgNote"></p>
+    <p id="dlgAckBox"><label><input id="dlgAck" type="checkbox"> I understand the risk and want to write these values.</label></p>
+    <p><button value="cancel" autofocus>Cancel</button> <button id="dlgOk" value="ok" class="dangerBtn">Write</button></p>
+  </form>
+</dialog>
+
+<footer>
+  Open source, not affiliated with DISAG or Knestel:
+  <a href="https://github.com/mehmetahsen/sam-funktrainer" target="_blank" rel="noopener">source code and documentation</a>.
+  Your data stays in this browser.
+</footer>
+
+<script type="module">
+// SAM-Funktrainer protocol + math. Runs unchanged in the browser (WebUSB) and in Node (the `usb`
+// package's WebUSB interface). Protocol details: docs/app-protocol-re.md, docs/live-and-prior-art.md.
+
+const USB_FILTER = { vendorId: 0x0adc, productId: 0x0005 };
+const RECEIVER = 6, SENSOR = 8; // packet type of a read; write is type + 1
+const READY = 1, NOT_READY = 2, DUMMY = 3, ACK = 4, NAK = 5, SAMPLE = 0x0a;
+const EP = 2; // endpoint number of both the 64-byte IN (0x82) and OUT (0x02) endpoints
+const NAK_TEXT = { 1: 'sensor not reachable', 2: 'sensor is streaming', 3: 'no such variable' };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/** Known firmware variables. 0..12 are EEPROM settings, 0x64.. runtime state, 0x95x identity. */
+const VARS = {
+  [RECEIVER]: {
+    0x0000: 'firmware version', 0x0001: 'HF channel default', 0x0002: 'HF transmit power (0..255)',
+    0x0065: 'HF channel current', 0x0067: 'sensor available flag', 0x0069: 'HF quality (meaning unclear)',
+    0x0950: 'revision', 0x0952: 'variable count - 1', 0x095e: 'serial number',
+  },
+  [SENSOR]: {
+    0x0000: 'firmware version', 0x0001: 'HF channel default', 0x0002: 'shot sensitivity default',
+    0x0003: 'options', 0x0004: 'battery low threshold', 0x0005: 'battery off threshold',
+    0x0006: 'HF transmit power (0..255)', 0x0007: '(unnamed)', 0x0008: 'sensor angle (deg)',
+    0x0009: 'ADS1100 gain', 0x000a: 'ADS1100 sample rate', 0x000b: 'zoom X', 0x000c: 'zoom Y',
+    0x0064: 'streaming enabled', 0x0065: 'HF channel current', 0x0066: 'shot sensitivity current',
+    0x0067: 'battery', 0x0068: 'microphone test',
+    0x0950: 'revision', 0x0952: 'variable count - 1', 0x095e: 'serial number',
+  },
+};
+
+/** Allowed values of the stored variables, used by the page's editor: { min, max } or { values }.
+ *  Ranges from the original software's Var*.tkd files; the receiver channel is limited to the sensor's 1..4. */
+const LIMITS = {
+  [RECEIVER]: { 1: { min: 1, max: 4 }, 2: { min: 0, max: 255 } },
+  [SENSOR]: {
+    1: { min: 1, max: 4 }, 2: { min: 0, max: 255 }, 3: { min: -32768, max: 32767 }, 4: { min: 200, max: 500 },
+    5: { min: 200, max: 500 }, 6: { min: 0, max: 255 }, 7: { min: -32768, max: 32767 }, 8: { min: 0, max: 359 },
+    9: { values: [1, 2, 4, 8] }, 10: { values: [8, 16, 32, 128] }, 11: { min: -32768, max: 32767 }, 12: { min: -32768, max: 32767 },
+  },
+};
+const allowed = (target, nr, v) => {
+  const l = LIMITS[target][nr];
+  return !!l && Number.isInteger(v) && (l.values ? l.values.includes(v) : v >= l.min && v <= l.max);
+};
+
+const hex = (v, digits = 4) => '0x' + (v >>> 0).toString(16).padStart(digits, '0');
+const hexBytes = d => Array.from(new Uint8Array(d.buffer, d.byteOffset, d.byteLength), b => b.toString(16).padStart(2, '0')).join(' ');
+const batteryVolts = v => (v & 0x7fffffff) / 100;
+
+/** Variable value as text with its unit. */
+function formatVar(target, nr, v) {
+  if (nr === 0) return (v / 100).toFixed(2);
+  if (target === SENSOR && nr === 0x67) return `${batteryVolts(v).toFixed(2)} V${v < 0 ? ' (LOW)' : ''}`;
+  if (target === SENSOR && (nr === 4 || nr === 5)) return `${(v / 100).toFixed(2)} V`;
+  return String(v);
+}
+
+class NakError extends Error {
+  constructor(code) { super(NAK_TEXT[code] ?? `NAK ${code}`); this.code = code; }
+}
+
+/** 18-byte measurement packet -> fields. */
+function parseSample(d) {
+  const status = d.getUint16(4), pulse = d.getUint16(16);
+  return {
+    a: d.getUint16(6), b: d.getUint16(8), c: d.getUint16(10), d: d.getUint16(12), // quadrant photodiodes
+    status, force: status & 0x3ff, shot: !!(status & 0x400), batteryLow: !!(status & 0x800),
+    force2: d.getUint16(14),
+    pulse: pulse === 0xffff ? null : pulse & 0x7fff, // heart rate, null = no pulse sensor
+  };
+}
+
+/** One-line description of any packet. dir: 'tx' (host to receiver) or 'rx'. */
+function describePacket(d, dir) {
+  const type = d.getUint16(0), long = d.byteLength >= 8;
+  const who = type === 6 || type === 7 ? 'receiver' : 'sensor';
+  const variable = () => `${who} ${hex(d.getUint16(2))} ${VARS[type & ~1][d.getUint16(2)] ?? '?'}`;
+  switch (type) {
+    case READY: return 'READY (link up)';
+    case NOT_READY: return 'NOT_READY (link down)';
+    case DUMMY: return 'DUMMY';
+    case ACK: return 'ACK';
+    case NAK: return long ? `NAK ${d.getInt32(4)}: ${NAK_TEXT[d.getInt32(4)] ?? 'unknown reason'}` : 'NAK';
+    case 6: case 8: return !long ? '?' : dir === 'tx' ? `read ${variable()}` : `${variable()} = ${d.getInt32(4)}`;
+    case 7: case 9: return long ? `write ${variable()} = ${d.getInt32(4)}` : '?';
+    case SAMPLE: {
+      if (d.byteLength < 18) return 'sample (short)';
+      const s = parseSample(d);
+      return `sample A=${s.a} B=${s.b} C=${s.c} D=${s.d} force=${s.force}/${s.force2} status=${hex(s.status)}${s.shot ? ' SHOT' : ''}`;
+    }
+    default: return `unknown type ${hex(type)}`;
+  }
+}
+
+/** USB descriptor facts of the receiver as [label, value] rows. */
+function usbInfo(dev) {
+  const bcd = (a, b, c) => `${a}.${b}${c}`;
+  const iface = dev.configuration?.interfaces[0]?.alternate;
+  return [
+    ['vendor:product', `${hex(dev.vendorId).slice(2)}:${hex(dev.productId).slice(2)}`],
+    ['manufacturer', dev.manufacturerName], ['product', dev.productName], ['serial string', dev.serialNumber],
+    ['USB version', bcd(dev.usbVersionMajor, dev.usbVersionMinor, dev.usbVersionSubminor)],
+    ['device version', bcd(dev.deviceVersionMajor, dev.deviceVersionMinor, dev.deviceVersionSubminor)],
+    ['device class', `${hex(dev.deviceClass, 2)} / ${hex(dev.deviceSubclass, 2)} / ${hex(dev.deviceProtocol, 2)}`],
+    ['interface class', iface ? `${hex(iface.interfaceClass, 2)} / ${hex(iface.interfaceSubclass, 2)} / ${hex(iface.interfaceProtocol, 2)}` : '?'],
+    ...(iface?.endpoints ?? []).map(e => [`endpoint ${e.endpointNumber} ${e.direction}`, `${e.type}, ${e.packetSize} bytes`]),
+  ];
+}
+
+class Trainer {
+  /**
+   * @param {USBDevice} dev
+   * @param {(sample: ReturnType<typeof parseSample>, tMs: number) => void} onSample
+   * @param {(dir: 'tx'|'rx', packet: DataView, tMs: number) => void} onPacket  every packet, for logging
+   */
+  constructor(dev, onSample = () => {}, onPacket = () => {}) {
+    this.dev = dev;
+    this.onSample = onSample;
+    this.onPacket = onPacket;
+    this.onError = () => {};        // USB failure in the receive loop (unplugged)
+    this.queue = Promise.resolve(); // one request at a time
+    this.waiter = null;             // resolves with the next matching non-sample packet
+  }
+
+  /** Opens the link to the receiver. The sensor may be off; use readAll(SENSOR) to find out. */
+  async open() {
+    const dev = this.dev;
+    await dev.open();
+    if (!dev.configuration) await dev.selectConfiguration(1);
+    await dev.claimInterface(0);
+    this.#readLoop();
+    const ready = this.#wait(1000, 'receiver did not answer');
+    await this.#send(READY);
+    await ready;
+    await this.stopStream().catch(e => { // a previous unclean exit may have left the sensor streaming
+      if (!(e instanceof NakError && e.code === 1)) throw e;
+    });
+  }
+
+  async close() {
+    try { await this.stopStream(); } catch { /* sensor may be gone */ }
+    this.closing = true;
+    await this.#send(NOT_READY);
+    await this.dev.close().catch(() => {}); // Node refuses to close with the IN transfer pending
+  }
+
+  readVar(target, nr) {
+    return this.#request(target, nr, 0xffffffff).then(d => d.getInt32(4));
+  }
+
+  writeVar(target, nr, value) {
+    return this.#request(target + 1, nr, value);
+  }
+
+  /** All known variables of one unit as { nr: value }; null where the firmware has no such variable.
+   *  Returns null if the sensor is not reachable. The stream must be stopped. */
+  async readAll(target) {
+    const out = {};
+    for (const key of Object.keys(VARS[target])) {
+      try { out[key] = await this.readVar(target, Number(key)); } catch (e) {
+        if (!(e instanceof NakError)) throw e;
+        if (e.code === 1) return null;
+        if (e.code !== 3) throw e; // NAK 2: still streaming, the values would be missing
+        out[key] = null;
+      }
+    }
+    return out;
+  }
+
+  startStream() { return this.writeVar(SENSOR, 0x64, 1); }
+
+  /** The sensor refuses commands for a few seconds while it streams; retry like the original (500 ms). */
+  async stopStream() {
+    for (let i = 0; ; i++) {
+      try { return await this.writeVar(SENSOR, 0x64, 0); } catch (e) {
+        if (!(e instanceof NakError && e.code === 2) || i >= 20) throw e;
+        await sleep(500);
+      }
+    }
+  }
+
+  #send(type, nr, value) {
+    const d = new DataView(new ArrayBuffer(nr === undefined ? 2 : 8));
+    d.setUint16(0, type);
+    if (nr !== undefined) { d.setUint16(2, nr); d.setUint32(4, value >>> 0); }
+    this.onPacket('tx', d, performance.now());
+    return this.dev.transferOut(EP, new Uint8Array(d.buffer)); // Node's usb package mishandles a DataView
+  }
+
+  /** Next packet accepted by `match`; others (stale replies of an earlier session) are dropped. */
+  #wait(ms, what, match = () => true) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { this.waiter = null; reject(new Error(what)); }, ms);
+      this.waiter = d => { if (match(d)) { clearTimeout(timer); this.waiter = null; resolve(d); } };
+    });
+  }
+
+  #request(type, nr, value) {
+    const isWrite = type === RECEIVER + 1 || type === SENSOR + 1;
+    const run = async () => {
+      const reply = this.#wait(5000, `timeout: no reply (packet type ${type}, variable ${hex(nr)})`, d => {
+        const t = d.getUint16(0);
+        if (isWrite) return t === ACK || (t === NAK && d.byteLength >= 8);
+        return d.byteLength >= 8 && (t === NAK || (t === type && d.getUint16(2) === nr));
+      });
+      await this.#send(type, nr, value);
+      const d = await reply;
+      if (d.getUint16(0) === NAK) throw new NakError(d.getInt32(4));
+      return d;
+    };
+    return this.queue = this.queue.then(run, run);
+  }
+
+  async #readLoop() {
+    while (!this.closing) {
+      let d;
+      try { d = (await this.dev.transferIn(EP, 64)).data; } catch (e) { // closed or unplugged
+        if (!this.closing) this.onError(e);
+        break;
+      }
+      if (!d || d.byteLength < 2) continue;
+      const now = performance.now(), type = d.getUint16(0);
+      this.onPacket('rx', d, now);
+      if (type === SAMPLE && d.byteLength >= 18) this.onSample(parseSample(d), now);
+      else if (type === READY) { if (!this.linkUp) { this.linkUp = true; this.waiter?.(d); } } // sent twice
+      else if (type !== NOT_READY && type !== DUMMY) this.waiter?.(d); // ACK, NAK, variable replies
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Math, reconstructed from the original software. Not yet checked against it shot for shot.
+
+/** Second-order Bessel low-pass, as the original applies to each photodiode channel (4 Hz at 100 Hz). */
+function lowpass(fg = 4, fs = 100) {
+  const a1 = 1.3617, b1 = 0.618, W = 1 / Math.tan(Math.PI * fg / fs);
+  const D = 1 + a1 * W + b1 * W * W;
+  const c1 = 2 * (1 - b1 * W * W) / D, c2 = (1 - a1 * W + b1 * W * W) / D;
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  return x => {
+    const y = (x + 2 * x1 + x2) / D - c1 * y1 - c2 * y2;
+    x2 = x1; x1 = x; y2 = y1; y1 = y;
+    return y;
+  };
+}
+
+// Target types of the original software (its WAFFE.DBF). Sizes in mm; dist = nominal distance in m;
+// lowest = lowest scoring ring; centre = scored by the hole centre instead of the pellet edge.
+const TARGETS = {
+  lg: { name: 'Air rifle 10 m', rings: 10, lowest: 1, d10: 0.5, ringWidth: 2.5, black: 30.5, pellet: 4.5, dist: 10 },
+  lp: { name: 'Air pistol 10 m', rings: 10, lowest: 1, d10: 11.5, ringWidth: 8, black: 59.5, pellet: 4.5, dist: 10 },
+  kk: { name: 'Small bore 50 m', rings: 10, lowest: 1, d10: 10.4, ringWidth: 8, black: 112.4, pellet: 5.58, dist: 50 },
+  zs: { name: 'Zimmerstutzen 15 m', rings: 10, lowest: 1, d10: 4.5, ringWidth: 4.5, black: 40.5, pellet: 4.5, dist: 15 },
+  ls: { name: 'Running target 10 m', rings: 10, lowest: 1, d10: 5.5, ringWidth: 2.5, black: 30.5, pellet: 4.5, dist: 10 },
+  sf: { name: 'Rapid-fire pistol 25 m', rings: 10, lowest: 5, d10: 100, ringWidth: 40, black: 500, pellet: 5.6, dist: 25 },
+  spp: { name: 'Sport pistol precision 25 m', rings: 10, lowest: 1, d10: 50, ringWidth: 25, black: 200, pellet: 5.6, dist: 25 },
+  spd: { name: 'Sport pistol duel 25 m', rings: 10, lowest: 5, d10: 100, ringWidth: 40, black: 500, pellet: 5.6, dist: 25 },
+  gkp: { name: 'Large bore precision 25 m', rings: 10, lowest: 1, d10: 50, ringWidth: 25, black: 200, pellet: 10, dist: 25, centre: true },
+  gkd: { name: 'Large bore duel 25 m', rings: 10, lowest: 5, d10: 100, ringWidth: 40, black: 500, pellet: 10, dist: 25, centre: true },
+};
+
+/** Radius of a ring's outer edge in mm (n = rings is the ten). */
+const ringRadius = (n, t) => t.d10 / 2 + (t.rings - n) * t.ringWidth;
+
+/** Decimal ring value for a hit r mm from the centre; 0 outside the lowest scoring ring. */
+function ring(r, t) {
+  const r10 = (t.d10 + (t.centre ? 0 : t.pellet)) / 2;
+  const v = r <= r10 ? t.rings + 1 - r / r10 : t.rings - (r - r10) / t.ringWidth;
+  return v < t.lowest ? 0 : Math.min(Math.floor(v * 10 + 1e-9) / 10, t.rings + 0.9);
+}
+
+/**
+ * Calibration from aimed marks. points: [{ rx, ry, X, Y }] with rx, ry the raw position (Tracker output)
+ * and X, Y the mark in mm at 10 m. Fits X = M·raw - offset by least squares, splits M into the rotation
+ * and the two zoom factors the sensor stores, and reports the error left at each mark with those values.
+ */
+function fitCalibration(points) {
+  const S = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], bx = [0, 0, 0], by = [0, 0, 0];
+  for (const p of points) {
+    const v = [p.rx, p.ry, 1];
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) S[i][j] += v[i] * v[j];
+      bx[i] += v[i] * p.X; by[i] += v[i] * p.Y;
+    }
+  }
+  const det = m => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+    + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const D = det(S);
+  if (!(Math.abs(D) > 1e-15)) throw new Error('the captured positions lie on a line or on top of each other');
+  const solve = rhs => [0, 1, 2].map(k => det(S.map((row, i) => row.map((v, j) => (j === k ? rhs[i] : v)))) / D);
+  const [a, b] = solve(bx), [d, e] = solve(by);
+  // M = diag(zoomX, zoomY) · R(phi): row 1 = zoomX (cos, -sin), row 2 = zoomY (sin, cos)
+  const wrap = v => Math.atan2(Math.sin(v), Math.cos(v));
+  let best = null;
+  for (const sx of [1, -1]) {
+    for (const sy of [1, -1]) {
+      const p1 = Math.atan2(-b * sx, a * sx), p2 = Math.atan2(d * sy, e * sy), diff = wrap(p1 - p2);
+      if (!best || Math.abs(diff) < Math.abs(best.diff)) best = { diff, sx, sy, phi: p2 + diff / 2 };
+    }
+  }
+  let { sx, sy, phi } = best;
+  if (sx > 0) { sx = -sx; sy = -sy; phi += Math.PI; } // same transform; the sensor's factory zoom is negative
+  const angle = (Math.round(phi * 180 / Math.PI) % 360 + 360) % 360;
+  const zoomX = Math.round(sx * Math.hypot(a, b)), zoomY = Math.round(sy * Math.hypot(d, e));
+  const rad = angle * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+  const map = p => [zoomX * (p.rx * cos - p.ry * sin), zoomY * (p.rx * sin + p.ry * cos)];
+  const offX = points.reduce((s, p) => s + map(p)[0] - p.X, 0) / points.length;
+  const offY = points.reduce((s, p) => s + map(p)[1] - p.Y, 0) / points.length;
+  const errors = points.map(p => { const [x, y] = map(p); return Math.hypot(x - offX - p.X, y - offY - p.Y); });
+  return { angle, zoomX, zoomY, offX, offY, errors };
+}
+
+/**
+ * Samples -> aim point in mm on the target face (x < 0 left, y < 0 up) and shot events.
+ * cfg: { zoomX, zoomY, angle (deg, sensor value + mounting angle), offX, offY (mm at 10 m), newFormula,
+ *        scale (nominal target distance / 10 m) }. Output: x, y in mm on the target; rx, ry raw position.
+ */
+class Tracker {
+  constructor(cfg) {
+    this.cfg = cfg;
+    this.filters = [0, 1, 2, 3].map(() => lowpass());
+    this.wasShot = false;
+  }
+
+  feed(s) {
+    const raw = [s.a, s.b, s.c, s.d];
+    const [a, b, c, d] = raw.map((v, i) => this.filters[i](v));
+    const out = {
+      valid: raw.every(v => v > 300),      // sensor sees the target's infrared LEDs
+      overdriven: raw.some(v => v > 5000), // too close, or target switch on "far"
+      shot: s.shot && !this.wasShot,       // rising edge
+      x: 0, y: 0,
+    };
+    this.wasShot = s.shot;
+    if (!out.valid) return out;
+    const { cfg } = this, sum = a + b + c + d;
+    const x = cfg.newFormula ? (c + d - a - b) / sum : (d - b) / (d + b);
+    const y = cfg.newFormula ? (b + c - a - d) / sum : (c - a) / (c + a);
+    const phi = cfg.angle * Math.PI / 180, cos = Math.cos(phi), sin = Math.sin(phi);
+    out.rx = x; out.ry = y;
+    const k = cfg.scale ?? 1;
+    out.x = k * (cfg.zoomX * (x * cos - y * sin) - cfg.offX);
+    out.y = k * (cfg.zoomY * (x * sin + y * cos) - cfg.offY);
+    return out;
+  }
+}
+
+
+const $ = id => document.getElementById(id);
+const ctx = $('view').getContext('2d');
+const TRACE_MS = 3000, POST_MS = 1000, LOG_LINES = 1000; // trace kept before and after each shot
+const load = (key, fallback) => { try { return JSON.parse(localStorage[key] ?? 'null') ?? fallback; } catch { return fallback; } };
+const keep = (key, value) => {
+  try { localStorage[key] = JSON.stringify(value); } catch (e) { status(`Could not store data in the browser: ${e.message}`, true); }
+};
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const unitName = kind => (kind === RECEIVER ? 'receiver' : 'sensor');
+const saved = load('sam', {});
+let customTargets = load('samTargets', {});
+const allTargets = () => ({ ...TARGETS, ...customTargets });
+const target = () => allTargets()[$('target').value] ?? TARGETS.lg;
+const cfg = { zoomX: -475, zoomY: -475, angle: 0, offX: saved.offX ?? 0, offY: saved.offY ?? 0, newFormula: !!saved.newFormula, scale: 1 };
+fillTargets();
+$('target').value = allTargets()[saved.target] ? saved.target : 'lg';
+$('angle').value = saved.mount ?? 0;
+$('formula').checked = cfg.newFormula;
+$('printDist').value = load('samPrintDist', 10);
+
+let sam = null, dev = null, tracker = null, streaming = false, sensorAngle = 0;
+let receiverVars = null, sensorVars = null; // { nr: value } from the last read; sensorVars null = not reachable
+let last = null, lastRaw = null, lastT = 0, t0 = performance.now();
+let trace = [], rawHist = [], logLines = [], logDirty = false;
+let session = newSession(); // current series; stored in the browser from its first shot on
+let selected = -1;          // index of the shot whose stored trace is drawn
+let recording = null;       // { shot, t0 } while the trace after a shot is still being collected
+let calib = null;           // { points, fit } while calibrating
+let pageCal = load('samPageCalibration', null); // calibration used instead of the sensor's own values
+const stats = { tx: 0, rx: 0, samples: 0, ack: 0, nak: 0, other: 0, errors: 0, missed: 0, rate: 0, window: 0, lastError: '' };
+const status = (text, warn = false) => { $('status').textContent = text; $('status').className = warn ? 'warn' : ''; };
+const devStatus = (text, warn = false) => { $('devStatus').textContent = text; $('devStatus').className = warn ? 'warn' : ''; };
+
+// ---- log and tables -------------------------------------------------------------------------
+function log(text) {
+  if ($('pause').checked) return;
+  logLines.push(`${((performance.now() - t0) / 1000).toFixed(3).padStart(9)}  ${text}`);
+  if (logLines.length > LOG_LINES) logLines.shift();
+  logDirty = true;
+}
+function logError(what, e) {
+  stats.errors++;
+  stats.lastError = `${what}: ${e.message}`;
+  log(`ERR ${stats.lastError}`);
+}
+function onPacket(dir, d) {
+  stats[dir]++;
+  const type = d.getUint16(0);
+  if (dir === 'rx' && type !== 10) stats[type === 4 ? 'ack' : type === 5 ? 'nak' : 'other']++;
+  if (type === 10 && !$('logSamples').checked) return;
+  log(`${dir === 'tx' ? 'TX ' : ' RX'}  ${hexBytes(d).padEnd(23)}  ${describePacket(d, dir)}`);
+}
+function table(id, rows) {
+  $(id).replaceChildren(...rows.map(([k, v]) => {
+    const tr = document.createElement('tr');
+    tr.append(Object.assign(document.createElement('th'), { textContent: k, scope: 'row' }), Object.assign(document.createElement('td'), { textContent: v ?? '' }));
+    return tr;
+  }));
+}
+const varName = (kind, nr) => VARS[kind][nr] ?? '(unnamed)';
+const varRows = (kind, vars) => Object.entries(vars).map(([nr, v]) => [`${hex(+nr)} ${varName(kind, +nr)}`, v === null ? 'not in firmware' : formatVar(kind, +nr, v)]);
+const yes = v => (v ? 'yes' : 'no');
+
+function showTech() {
+  const r = receiverVars, s = sensorVars, p = last, raw = lastRaw;
+  const fresh = streaming && lastRaw && performance.now() - lastT < 500;
+  table('tLink', [
+    ['USB receiver', dev ? (sam ? 'connected, link up' : 'disconnected') : 'not connected'],
+    ['sensor reachable by radio', sam ? yes(s) : ''],
+    ['paired set (serials equal)', r && s ? `${yes(r[0x95e] === s[0x95e])} (receiver ${r[0x95e]}, sensor ${s[0x95e]})` : ''],
+    ['radio channel', r ? `receiver ${r[0x65]}${s ? `, sensor ${s[0x65]}${r[0x65] === s[0x65] ? '' : ' (MISMATCH)'}` : ''}` : ''],
+    ['firmware', r ? `receiver ${formatVar(RECEIVER, 0, r[0])}${s ? `, sensor ${formatVar(SENSOR, 0, s[0])}` : ''}` : ''],
+    ['sensor battery', s ? formatVar(SENSOR, 0x67, s[0x67]) + ' at last read' : ''],
+    ['streaming', sam ? (streaming ? (fresh ? 'on, samples arriving' : 'on, NO samples (sensor off or out of range)') : 'off') : ''],
+    ['sensor sees target', fresh && p ? yes(p.valid) + (p.overdriven ? ' (signal too strong)' : '') : ''],
+    ['last error', stats.lastError],
+  ]);
+  table('tLive', !raw ? [['', 'no sample yet']] : [
+    ['photodiodes A B C D', `${raw.a} ${raw.b} ${raw.c} ${raw.d}`],
+    ['sum', raw.a + raw.b + raw.c + raw.d],
+    ['raw position', p.valid ? `x ${p.rx.toFixed(5)}  y ${p.ry.toFixed(5)}` : ''],
+    ['aim point (mm)', p.valid ? `x ${p.x.toFixed(2)}  y ${p.y.toFixed(2)}` : 'no target in view'],
+    ['distance from centre', p.valid ? `${Math.hypot(p.x, p.y).toFixed(2)} mm, ring ${ring(Math.hypot(p.x, p.y), target()).toFixed(1)}` : ''],
+    ['status word', `${hex(raw.status)}  shot=${+raw.shot} battery-low=${+raw.batteryLow}`],
+    ['trigger force 1 / 2', `${raw.force} / ${raw.force2}`],
+    ['pulse', raw.pulse === null ? 'no pulse sensor' : raw.pulse],
+    ['applied', `zoom ${cfg.zoomX}/${cfg.zoomY}${activePageCal() ? ' (page calibration)' : ''}, angle ${cfg.angle}°, offset ${cfg.offX.toFixed(2)}/${cfg.offY.toFixed(2)} mm at 10 m, target scale ×${cfg.scale}, ${cfg.newFormula ? 'new' : 'old'} formula`],
+  ]);
+  table('tStats', [
+    ['packets sent / received', `${stats.tx} / ${stats.rx}`],
+    ['samples', stats.samples],
+    ['sample rate', `${stats.rate} per second (nominal 100)`],
+    ['missed samples (estimated)', stats.missed],
+    ['ACK / NAK / other replies', `${stats.ack} / ${stats.nak} / ${stats.other}`],
+    ['errors and timeouts', stats.errors],
+    ['live output', `${$('wsState').textContent}, ${out.sent} messages sent, ${out.dropped} positions dropped`],
+  ]);
+}
+function showDevice() {
+  table('tUsb', dev ? usbInfo(dev) : [['', 'not connected']]);
+  table('tReceiver', receiverVars ? varRows(RECEIVER, receiverVars) : [['', 'not read']]);
+  table('tSensor', sensorVars ? varRows(SENSOR, sensorVars) : [['', sam ? 'sensor not reachable' : 'not read']]);
+  const r = receiverVars, s = sensorVars;
+  $('sensNow').textContent = s ? s[0x66] : '–';
+  $('sensDef').textContent = s ? s[2] : '–';
+  if (s && $('sensNew').value === '') $('sensNew').value = s[0x66];
+  $('chRecv').textContent = r ? `${r[0x65]} (stored ${r[1]})` : '–';
+  $('chSens').textContent = s ? `${s[0x65]} (stored ${s[1]})` : 'not reachable';
+  if (r) $('chNew').value = r[0x65];
+  renderEditor('eReceiver', RECEIVER, r);
+  renderEditor('eSensor', SENSOR, s);
+}
+function showLog() { // batched: the log can grow by 100 lines per second
+  if (!logDirty) return;
+  const el = $('log'), stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+  el.textContent = logLines.join('\n');
+  if (stick) el.scrollTop = el.scrollHeight;
+  logDirty = false;
+}
+setInterval(showTech, 250);
+setInterval(showLog, 100);
+setInterval(() => { stats.rate = stats.window; stats.window = 0; }, 1000);
+
+// ---- targets ------------------------------------------------------------------------------------
+function fillTargets() {
+  const value = $('target').value;
+  $('target').replaceChildren(...Object.entries(allTargets()).map(([key, t]) => new Option(t.name, key)));
+  if (allTargets()[value]) $('target').value = value;
+  listCustom();
+}
+/** Custom and imported target definitions are untrusted input. */
+function validTarget(t) {
+  const n = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+  return !!t && typeof t.name === 'string' && t.name.trim().length > 0 && t.name.length <= 60
+    && Number.isInteger(t.rings) && n(t.rings, 1, 20) && Number.isInteger(t.lowest) && n(t.lowest, 1, t.rings)
+    && n(t.d10, 0, 1000) && n(t.ringWidth, 0.01, 1000) && n(t.black, 0, 2000) && n(t.pellet, 0, 50) && n(t.dist, 1, 300)
+    && (t.centre === undefined || typeof t.centre === 'boolean');
+}
+function listCustom() {
+  const rows = Object.entries(customTargets).map(([key, t]) => {
+    const tr = document.createElement('tr'), td = document.createElement('td');
+    const del = Object.assign(document.createElement('button'), { textContent: 'Delete' });
+    del.onclick = () => {
+      if (!confirm(`Delete the target "${t.name}"? Saved sessions keep their own copy of it.`)) return;
+      delete customTargets[key];
+      keep('samTargets', customTargets);
+      if ($('target').value === key) $('target').value = 'lg';
+      fillTargets();
+      applySettings();
+    };
+    td.append(del);
+    tr.append(Object.assign(document.createElement('td'), { textContent: `${t.name}: ten Ø ${t.d10}, ring width ${t.ringWidth}, ${t.dist} m` }), td);
+    return tr;
+  });
+  if (!rows.length) rows.push(Object.assign(document.createElement('tr'), { innerHTML: '<td>None.</td>' }));
+  $('tCustom').replaceChildren(...rows);
+}
+$('customForm').onsubmit = e => {
+  e.preventDefault();
+  const f = new FormData(e.target), num = k => Number(f.get(k));
+  const t = { name: f.get('name').trim(), rings: num('rings'), lowest: num('lowest'), d10: num('d10'), ringWidth: num('ringWidth'),
+    black: num('black'), pellet: num('pellet'), dist: num('dist'), centre: f.get('centre') === 'on' };
+  if (!validTarget(t)) { $('customMsg').textContent = 'Check the values: the lowest ring must not be above the number of rings.'; return; }
+  const key = `c-${crypto.randomUUID().slice(0, 8)}`;
+  customTargets[key] = t;
+  keep('samTargets', customTargets);
+  fillTargets();
+  $('target').value = key;
+  applySettings();
+  save();
+  $('customMsg').textContent = `Added and selected "${t.name}".`;
+  e.target.reset();
+};
+
+// ---- settings and shots -----------------------------------------------------------------------
+function applySettings() {
+  cfg.angle = sensorAngle + Number($('angle').value);
+  cfg.newFormula = $('formula').checked;
+  cfg.scale = target().dist / 10;
+  keep('sam', { target: $('target').value, mount: $('angle').value, newFormula: cfg.newFormula, offX: cfg.offX, offY: cfg.offY });
+  listShots();
+}
+for (const id of ['target', 'angle', 'formula']) $(id).onchange = applySettings;
+$('target').addEventListener('change', save);
+$('name').onchange = save;
+
+function listShots() {
+  const t = target(), values = session.shots.map(s => ring(Math.hypot(s.x, s.y), t));
+  $('shots').replaceChildren(...values.map((v, i) => {
+    const li = document.createElement('li');
+    const show = Object.assign(document.createElement('button'), { textContent: v.toFixed(1), title: 'Show the aim trace and diagram of this shot' });
+    show.setAttribute('aria-pressed', i === selected);
+    show.onclick = () => { selected = selected === i ? -1 : i; listShots(); };
+    const del = Object.assign(document.createElement('button'), { textContent: '✕', title: 'Delete this shot' });
+    del.setAttribute('aria-label', `Delete shot ${i + 1}`);
+    del.onclick = () => { session.shots.splice(i, 1); selected = -1; listShots(); save(); };
+    li.append(show, ' ', del);
+    return li;
+  }));
+  $('total').textContent = values.reduce((a, b) => a + b, 0).toFixed(1);
+  $('count').textContent = session.shots.length;
+  drawDiagram();
+}
+
+function onSample(s, t) {
+  if (!tracker) return;
+  stats.samples++; stats.window++;
+  if (lastT && t - lastT > 15) stats.missed += Math.round((t - lastT) / 10) - 1; // samples are 10 ms apart
+  const p = tracker.feed(s);
+  last = p; lastRaw = s; lastT = t;
+  const rate = Number($('wsRate').value);
+  if (rate && t - out.lastSample >= 1000 / rate - 1) {
+    out.lastSample = t;
+    emit('sample', { t: Math.round(performance.timeOrigin + t), valid: p.valid, overdriven: p.overdriven, x: p.valid ? r2(p.x) : null, y: p.valid ? r2(p.y) : null,
+      a: s.a, b: s.b, c: s.c, d: s.d, force: s.force, force2: s.force2, pulse: s.pulse }, true);
+  }
+  if (!p.valid) return;
+  rawHist.push({ rx: p.rx, ry: p.ry, t });
+  while (rawHist[0].t < t - 1000) rawHist.shift();
+  trace.push({ x: p.x, y: p.y, t, f: s.force });
+  while (trace[0].t < t - TRACE_MS) trace.shift();
+  if (recording) { // follow-through after the last shot
+    if (t - recording.t0 <= POST_MS) recording.shot.trace.push([Math.round(t - recording.t0), r2(p.x), r2(p.y), s.force]);
+    else { recording = null; save(); drawDiagram(); }
+  }
+  if (p.shot) {
+    if (calib && !calib.fit) return calCapture(); // shots aim at calibration marks, they are not part of the session
+    // trace rows: [ms relative to the shot, x mm, y mm, trigger force]
+    const shot = { t: Date.now(), x: r2(p.x), y: r2(p.y), trace: trace.map(q => [Math.round(q.t - t), r2(q.x), r2(q.y), q.f]) };
+    session.shots.push(shot);
+    recording = { shot, t0: t };
+    log(`SHOT ${session.shots.length}: x ${p.x.toFixed(2)} y ${p.y.toFixed(2)} mm, ring ${ring(Math.hypot(p.x, p.y), target()).toFixed(1)}`);
+    listShots();
+    emit('shot', { session: session.id, ...shotInfo(shot, session.shots.length - 1) });
+    save();
+  }
+}
+
+// ---- diagram of the selected shot: X(t), Y(t), trigger force(t) ---------------------------------
+function drawDiagram() {
+  const shot = session.shots[selected];
+  $('diagramBox').hidden = !shot;
+  if (!shot) return;
+  $('diagramTitle').textContent = `Shot ${selected + 1}: position and trigger force over time (0 = shot)`;
+  const c = $('diagram'), g = c.getContext('2d'), w = c.width, h = c.height, fg = getComputedStyle(document.body).color;
+  const rows = shot.trace, t = target(), r10 = (t.d10 + (t.centre ? 0 : t.pellet)) / 2;
+  g.clearRect(0, 0, w, h);
+  g.font = '15px system-ui, sans-serif';
+  g.fillStyle = fg;
+  if (rows.length < 2) { g.fillText('No trace recorded for this shot.', 10, 30); return; }
+  const tStart = rows[0][0], tEnd = rows.at(-1)[0], left = 70, right = w - 10, ph = (h - 24) / 3;
+  const px = ms => left + (ms - tStart) / (tEnd - tStart || 1) * (right - left);
+  [['X (mm, + = right)', 1], ['Y (mm, + = low)', 2], ['trigger force (raw value)', 3]].forEach(([label, col], i) => {
+    const top = i * ph + 20, bottom = (i + 1) * ph;
+    g.fillStyle = fg;
+    g.fillText(label, left, top - 4);
+    const values = rows.map(r => r[col]).filter(v => v !== undefined);
+    if (!values.length) { g.fillText('not recorded for this shot', left + 10, (top + bottom) / 2); return; }
+    let lo = Math.min(...values), hi = Math.max(...values);
+    if (col < 3) { lo = Math.min(lo, -r10); hi = Math.max(hi, r10); }
+    if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
+    const py = v => bottom - (v - lo) / (hi - lo) * (bottom - top);
+    g.strokeStyle = 'rgba(128,128,128,.6)'; g.lineWidth = 1; g.setLineDash([]);
+    g.strokeRect(left, top, right - left, bottom - top);
+    g.fillText(hi.toFixed(1), 4, top + 12);
+    g.fillText(lo.toFixed(1), 4, bottom);
+    if (col < 3) { // the ten's edge (with the pellet) and the centre line
+      g.setLineDash([4, 4]);
+      for (const v of [-r10, 0, r10]) { g.beginPath(); g.moveTo(left, py(v)); g.lineTo(right, py(v)); g.stroke(); }
+      g.setLineDash([]);
+    }
+    g.strokeStyle = '#e22';
+    g.beginPath(); g.moveTo(px(0), top); g.lineTo(px(0), bottom); g.stroke();
+    g.strokeStyle = col === 3 ? '#e80' : '#08f'; g.lineWidth = 2;
+    g.beginPath();
+    for (const r of rows) if (r[col] !== undefined) g.lineTo(px(r[0]), py(r[col]));
+    g.stroke();
+  });
+  g.fillStyle = fg;
+  g.fillText(`${(tStart / 1000).toFixed(1)} s`, left, h - 4);
+  g.fillText('shot', px(0) - 14, h - 4);
+  g.fillText(`+${(tEnd / 1000).toFixed(1)} s`, right - 50, h - 4);
+}
+
+// ---- sessions: storage in the browser (IndexedDB), export, import --------------------------------
+function newSession() {
+  return { id: crypto.randomUUID(), started: new Date().toISOString(), name: '', target: $('target').value, targetDef: target(), shots: [] };
+}
+const r2 = v => Math.round(v * 100) / 100;
+const database = new Promise((resolve, reject) => {
+  const open = indexedDB.open('sam-funktrainer', 1);
+  open.onupgradeneeded = () => open.result.createObjectStore('sessions', { keyPath: 'id' });
+  open.onsuccess = () => resolve(open.result);
+  open.onerror = () => reject(open.error);
+});
+/** One request on the sessions store, e.g. db('readwrite', s => s.put(x)). */
+const db = async (mode, request) => {
+  const store = (await database).transaction('sessions', mode).objectStore('sessions');
+  return new Promise((resolve, reject) => {
+    const r = request(store);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+};
+let savedIds = new Set();
+const targetOf = s => s.targetDef ?? allTargets()[s.target] ?? target();
+
+/** Store the current session. Empty sessions are not stored until they have a shot. */
+async function save() {
+  session.name = $('name').value;
+  session.target = $('target').value;
+  session.targetDef = target();
+  emitSession();
+  if (!session.shots.length && !savedIds.has(session.id)) return;
+  try {
+    await db('readwrite', s => s.put(session));
+    navigator.storage?.persist?.(); // ask the browser not to evict the data
+    await listSessions();
+  } catch (e) {
+    logError('save', e);
+    status(`Could not save the session: ${e.message}`, true);
+  }
+}
+
+// ---- live output: this page connects out to a WebSocket server run by other software ------------
+// Message format: docs/streaming.md
+const out = { ws: null, retry: 0, sent: 0, dropped: 0, lastSample: 0 };
+const wsState = text => { $('wsState').textContent = text; };
+const shotInfo = (h, i) => ({ n: i + 1, t: h.t, x: h.x, y: h.y, ring: ring(Math.hypot(h.x, h.y), target()) });
+
+/** Send one message. Positions are dropped while the receiver is not keeping up; everything else is always sent. */
+function emit(type, data, droppable = false) {
+  const ws = out.ws;
+  if (ws?.readyState !== WebSocket.OPEN) return;
+  if (droppable && ws.bufferedAmount > 256 * 1024) { out.dropped++; return; }
+  ws.send(JSON.stringify({ type, ...data }));
+  out.sent++;
+}
+const emitSession = () => emit('session', { id: session.id, started: session.started, name: $('name').value, target: $('target').value,
+  targetDef: target(), shots: session.shots.map(shotInfo) });
+const emitStatus = () => emit('status', {
+  receiver: !!sam, sensor: !!(sam && sensorVars), streaming,
+  receiverSerial: receiverVars?.[0x95e] ?? null, sensorSerial: sensorVars?.[0x95e] ?? null,
+  receiverFirmware: receiverVars ? receiverVars[0] / 100 : null, sensorFirmware: sensorVars ? sensorVars[0] / 100 : null,
+  batteryVolts: sensorVars ? (sensorVars[0x67] & 0x7fffffff) / 100 : null, batteryLow: sensorVars ? sensorVars[0x67] < 0 : null });
+
+function wsConnect() {
+  clearTimeout(out.retry);
+  out.ws?.close();
+  out.ws = null;
+  const entered = $('wsUrl').value.trim();
+  keep('samOutput', { url: entered, rate: $('wsRate').value });
+  if (!$('wsOn').checked) return wsState('off');
+  if (!entered) { $('wsOn').checked = false; return wsState('enter an address first'); }
+  const url = /^wss?:\/\//.test(entered) ? entered : `ws://${entered}`;
+  let ws;
+  try { ws = new WebSocket(url); } catch (e) { $('wsOn').checked = false; return wsState(`invalid address: ${e.message}`); }
+  out.ws = ws;
+  wsState(`connecting to ${url}`);
+  ws.onopen = () => {
+    wsState(`connected to ${url}`);
+    log(`--- live output connected to ${url}`);
+    emit('hello', { software: 'sam-funktrainer', format: 1 });
+    emitStatus();
+    emitSession();
+  };
+  ws.onclose = () => {
+    if (out.ws !== ws) return; // replaced or switched off
+    wsState(`no connection to ${url}, retrying`);
+    out.retry = setTimeout(wsConnect, 2000);
+  };
+}
+{
+  const o = load('samOutput', {});
+  $('wsUrl').value = o.url ?? '';
+  if (o.rate) $('wsRate').value = o.rate;
+}
+$('wsOn').onchange = $('wsUrl').onchange = wsConnect;
+$('wsRate').onchange = () => keep('samOutput', { url: $('wsUrl').value.trim(), rate: $('wsRate').value });
+
+function openSession(s) {
+  if (!allTargets()[s.target] && s.targetDef) { // custom target from another browser: keep it here too
+    customTargets[s.target] = s.targetDef;
+    keep('samTargets', customTargets);
+    fillTargets();
+  }
+  session = s; selected = -1; recording = null; trace = [];
+  $('name').value = s.name;
+  if (allTargets()[s.target]) $('target').value = s.target;
+  applySettings();
+  listSessions();
+  emitSession();
+}
+
+function download(name, text, type) {
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([text], { type })), download: name });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+const fileName = s => `sam-${s.started.slice(0, 16).replace(/[:T]/g, '-')}${s.name ? '-' + s.name.replace(/[^\w-]+/g, '_') : ''}`;
+const toCsv = s => ['shot,time,x_mm,y_mm,ring', ...s.shots.map((h, i) =>
+  `${i + 1},${new Date(h.t).toISOString()},${h.x},${h.y},${ring(Math.hypot(h.x, h.y), targetOf(s)).toFixed(1)}`)].join('\n') + '\n';
+
+/** Imported files are untrusted: accept only the exact shape this page writes. */
+function validSession(s) {
+  const num = v => typeof v === 'number' && Number.isFinite(v);
+  return !!s && typeof s.id === 'string' && typeof s.started === 'string' && !Number.isNaN(Date.parse(s.started))
+    && typeof s.name === 'string' && typeof s.target === 'string' && /^[\w-]{1,40}$/.test(s.target)
+    && (s.targetDef === undefined || validTarget(s.targetDef)) && Array.isArray(s.shots)
+    && s.shots.every(h => h && num(h.t) && num(h.x) && num(h.y)
+      && Array.isArray(h.trace) && h.trace.every(p => Array.isArray(p) && (p.length === 3 || p.length === 4) && p.every(num)));
+}
+
+async function listSessions() {
+  const all = (await db('readonly', s => s.getAll())).sort((a, b) => b.started.localeCompare(a.started));
+  savedIds = new Set(all.map(s => s.id));
+  const cell = (...content) => { const td = document.createElement('td'); td.append(...content); return td; };
+  const button = (text, title, onclick) => Object.assign(document.createElement('button'), { textContent: text, title, onclick });
+  const rows = all.map(s => {
+    const t = targetOf(s), total = s.shots.reduce((a, h) => a + ring(Math.hypot(h.x, h.y), t), 0);
+    const tr = document.createElement('tr');
+    tr.append(
+      cell(new Date(s.started).toLocaleString() + (s.id === session.id ? ' (open)' : '')),
+      cell(s.name), cell(t.name), cell(`${s.shots.length} shots`), cell(`${total.toFixed(1)} rings`),
+      cell(
+        button('Open', 'Show this session; new shots are added to it', () => openSession(s)),
+        button('JSON', 'Export everything including aim traces', () => download(fileName(s) + '.json', JSON.stringify(s), 'application/json')),
+        button('CSV', 'Export one line per shot', () => download(fileName(s) + '.csv', toCsv(s), 'text/csv')),
+        button('Delete', 'Delete this session', async () => {
+          if (!confirm(`Delete the session of ${new Date(s.started).toLocaleString()} with ${s.shots.length} shots?`)) return;
+          await db('readwrite', st => st.delete(s.id));
+          if (s.id === session.id) openSession(newSession()); else listSessions();
+        }),
+      ));
+    return tr;
+  });
+  if (!rows.length) rows.push(Object.assign(document.createElement('tr'), { innerHTML: '<td>None yet. A session is saved automatically from its first shot.</td>' }));
+  $('tSessions').replaceChildren(...rows);
+}
+
+$('newSession').onclick = () => openSession(newSession());
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const s = JSON.parse(await file.text());
+    if (!validSession(s)) throw new Error('not a session file exported by this page');
+    await db('readwrite', st => st.put(s));
+    openSession(s);
+  } catch (err) {
+    status(`Import failed: ${err.message}`, true);
+  }
+};
+
+// ---- printing targets and the calibration sheet at the real distance ---------------------------
+/** Opens a print window with an SVG drawing in mm, centred on (0, 0). */
+function printSheet(title, svg, width, height) {
+  if (width > 190 || height > 250) {
+    return status(`${title} would be ${Math.round(width)} × ${Math.round(height)} mm at this distance, more than fits on A4. Choose a shorter distance.`, true);
+  }
+  const ticks = Array.from({ length: 11 }, (_, i) => `M${i * 10} ${i % 5 ? 2 : 0}v${i % 5 ? 2 : 6}`).join('');
+  const w = window.open('', '_blank');
+  if (!w) return status('The browser blocked the print window. Allow pop-ups for this page.', true);
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+<style>@page { size: A4; margin: 10mm } body { margin: 0; font: 10pt system-ui, sans-serif } svg { display: block; margin: 4mm auto }</style>
+<p>${escapeHtml(title)}. Print at 100 % ("actual size"). The ruler must measure exactly 100 mm.</p>
+<svg width="100mm" height="6mm" viewBox="0 0 100 6"><path d="M0 3h100${ticks}" stroke="#000" stroke-width=".3" fill="none"/></svg>
+<svg width="${width}mm" height="${height}mm" viewBox="${-width / 2} ${-height / 2} ${width} ${height}">${svg}</svg>
+<script>addEventListener('load', () => print());<\/script>`);
+  w.document.close();
+}
+const printDist = () => {
+  const d = Number($('printDist').value);
+  keep('samPrintDist', d);
+  return d > 0 ? d : 10;
+};
+$('printTarget').onclick = () => {
+  const t = target(), d = printDist(), k = d / t.dist, line = Math.max(0.15, 0.002 * ringRadius(t.lowest, t) * k);
+  let svg = '';
+  for (let n = t.lowest; n <= t.rings; n++) {
+    const r = ringRadius(n, t), black = 2 * r <= t.black + 0.01;
+    svg += `<circle r="${r * k}" fill="${black ? '#000' : '#fff'}" stroke="${black ? '#fff' : '#000'}" stroke-width="${line}"/>`;
+  }
+  const size = 2 * ringRadius(t.lowest, t) * k + 4;
+  printSheet(`${t.name}, printed for ${d} m`, svg, size, size);
+};
+$('printCal').onclick = () => {
+  const d = printDist(), k = d / 10, r = 10 * k; // marks 50 mm from the centre and 20 mm wide at 10 m
+  const svg = MARKS.map(([label, X, Y]) => `<g transform="translate(${X * k} ${Y * k})"><circle r="${r}"/>
+    <path d="M${-r} 0h${2 * r}M0 ${-r}v${2 * r}" stroke="#fff" stroke-width="${0.05 * r}"/>
+    <text y="${r + 4}" font-size="3" text-anchor="middle">${label}</text></g>`).join('');
+  const size = 2 * (50 + 10) * k + 10;
+  printSheet(`Calibration sheet, printed for ${d} m`, svg, size, size);
+};
+
+// ---- drawing ----------------------------------------------------------------------------------
+function draw() {
+  const t = target(), size = $('view').width, outer = ringRadius(t.lowest, t);
+  const k = size / 2 / (outer * 1.15); // px per mm
+  ctx.setTransform(k, 0, 0, k, size / 2, size / 2);
+  ctx.clearRect(-size, -size, 2 * size, 2 * size);
+  ctx.lineWidth = 1 / k;
+  for (let n = t.lowest; n <= t.rings; n++) {
+    const r = ringRadius(n, t), black = 2 * r <= t.black + 0.01;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, 7);
+    ctx.fillStyle = black ? '#111' : '#f4f0e6'; ctx.fill();
+    ctx.strokeStyle = black ? '#f4f0e6' : '#111'; ctx.stroke();
+  }
+  ctx.strokeStyle = '#e80'; ctx.lineWidth = 2 / k; ctx.lineJoin = 'round';
+  ctx.beginPath(); for (const p of trace) ctx.lineTo(p.x, p.y); ctx.stroke();
+  session.shots.forEach((s, i) => {
+    ctx.beginPath(); ctx.arc(s.x, s.y, t.pellet / 2, 0, 7);
+    ctx.fillStyle = i === selected ? '#a4f' : i === session.shots.length - 1 ? '#e22' : '#2a6'; ctx.fill();
+  });
+  const shown = session.shots[selected];
+  if (shown) for (const [colour, part] of [['#a4f', shown.trace.filter(p => p[0] <= 0)], ['#0c6', shown.trace.filter(p => p[0] >= 0)]]) {
+    ctx.strokeStyle = colour; ctx.beginPath(); for (const p of part) ctx.lineTo(p[1], p[2]); ctx.stroke();
+  }
+  const stale = performance.now() - lastT > 500, fresh = streaming && lastRaw && !stale;
+  if (fresh && last.valid) { ctx.beginPath(); ctx.arc(last.x, last.y, 3 / k, 0, 7); ctx.fillStyle = '#08f'; ctx.fill(); }
+  if (sam && streaming) {
+    if (stale) status('No samples from the sensor. Is it switched on and in range?', true);
+    else if (!lastRaw) status('Waiting for the first sample…');
+    else if (lastRaw.batteryLow) status('Sensor battery low. Charge it soon.', true);
+    else if (last.overdriven) status('Signal too strong: move back or set the target unit to "near".', true);
+    else status(last.valid ? 'On target.' : 'Sensor does not see the target.');
+  }
+  requestAnimationFrame(draw);
+}
+
+// ---- device settings: confirmation, backups, writes ----------------------------------------------
+/** Shows what will be written; resolves true only if the user confirms. Dangerous writes need the extra tick. */
+function confirmWrites(title, writes, danger, note) {
+  const dlg = $('dlg');
+  $('dlgTitle').textContent = title;
+  $('dlgWarn').hidden = !danger;
+  table('dlgTable', writes.map(w => [`${unitName(w.target)} ${hex(w.nr)} ${varName(w.target, w.nr)}`, `${w.old} → ${w.value}`]));
+  $('dlgNote').textContent = note || (danger ? '' : 'The previous values are backed up before writing.');
+  $('dlgAckBox').hidden = !danger;
+  $('dlgAck').checked = false;
+  $('dlgOk').disabled = danger;
+  $('dlgAck').onchange = () => { $('dlgOk').disabled = !$('dlgAck').checked; };
+  dlg.returnValue = '';
+  dlg.showModal();
+  return new Promise(resolve => { // decided by the button pressed (submit) or Esc (cancel), before the dialog closes
+    const form = dlg.querySelector('form');
+    const done = ok => { form.onsubmit = dlg.oncancel = null; resolve(ok); };
+    form.onsubmit = e => done(e.submitter?.value === 'ok');
+    dlg.oncancel = () => done(false);
+  });
+}
+
+/**
+ * Write values after confirmation. writes: [{ target, nr, old, value, verify? }], written in this order.
+ * Re-reads both units first and refuses if anything differs from what the user was shown.
+ */
+async function writeDevice(title, writes, { danger = true, note = '' } = {}) {
+  if (!sam) { devStatus('Connect the receiver first.', true); return false; }
+  if (!writes.length) { devStatus('Nothing to change.'); return false; }
+  if (!await confirmWrites(title, writes, danger, note)) return false;
+  let done = 0;
+  try {
+    devStatus(`${title}: writing…`);
+    streaming = false;
+    await sam.stopStream().catch(e => { if (!(e instanceof NakError)) throw e; });
+    const now = { [RECEIVER]: await sam.readAll(RECEIVER), [SENSOR]: await sam.readAll(SENSOR) };
+    backup(`before: ${title}`, now[RECEIVER], now[SENSOR], true);
+    for (const w of writes) {
+      const v = now[w.target]?.[w.nr];
+      if (v === undefined) throw new Error(`the ${unitName(w.target)} is not reachable`);
+      if (v !== w.old) throw new Error(`${unitName(w.target)} ${hex(w.nr)} is now ${v}, not ${w.old} as shown`);
+    }
+    for (const w of writes) {
+      log(`WRITE ${unitName(w.target)} ${hex(w.nr)} ${varName(w.target, w.nr)}: ${w.old} -> ${w.value}`);
+      await sam.writeVar(w.target, w.nr, w.value);
+      if (w.verify !== false) {
+        const v = await sam.readVar(w.target, w.nr);
+        if (v !== w.value) throw new Error(`${unitName(w.target)} ${hex(w.nr)} reads back ${v} instead of ${w.value}`);
+      }
+      done++;
+    }
+    devStatus(`${title}: done, ${done} value${done === 1 ? '' : 's'} written.`);
+    return true;
+  } catch (e) {
+    logError('write', e);
+    devStatus(`${title}: stopped after ${done} of ${writes.length} writes (${e.message}). The previous settings are in "Backups of device settings".`, true);
+    return false;
+  } finally {
+    await refresh();
+  }
+}
+
+// Backups: { taken, reason, receiver: { serial, firmware, vars }, sensor: same or null }
+let backups = load('samDeviceBackups', []);
+const storedPart = vars => vars && Object.fromEntries(Object.entries(vars).filter(([k]) => +k <= vars[0x952]));
+const unitOf = vars => vars && { serial: vars[0x95e], firmware: vars[0] / 100, vars: { ...vars } };
+const pairKey = b => `${b.receiver.serial}/${b.sensor?.serial ?? '-'}`;
+const settingsKey = b => JSON.stringify([storedPart(b.receiver.vars), b.sensor && storedPart(b.sensor.vars)]);
+
+function backup(reason, recv = receiverVars, sens = sensorVars, force = false) {
+  if (!recv) return;
+  const b = { taken: new Date().toISOString(), reason, receiver: unitOf(recv), sensor: unitOf(sens) };
+  const prev = backups.filter(x => pairKey(x) === pairKey(b)).at(-1);
+  if (!force && prev && settingsKey(prev) === settingsKey(b)) return;
+  backups.push(b);
+  while (backups.length > 100) { // drop the oldest backup that is not the first one of its device
+    const firsts = new Set();
+    const drop = backups.findIndex(x => { const k = pairKey(x); if (firsts.has(k)) return true; firsts.add(k); return false; });
+    if (drop < 0) break;
+    backups.splice(drop, 1);
+  }
+  keep('samDeviceBackups', backups);
+  listBackups();
+}
+
+function validBackup(b) {
+  const unit = u => !!u && Number.isInteger(u.serial) && typeof u.firmware === 'number' && !!u.vars && typeof u.vars === 'object'
+    && Object.entries(u.vars).every(([k, v]) => /^\d+$/.test(k) && (v === null || Number.isInteger(v))) && Number.isInteger(u.vars[0x952]);
+  return !!b && typeof b.taken === 'string' && !Number.isNaN(Date.parse(b.taken)) && typeof b.reason === 'string'
+    && unit(b.receiver) && (b.sensor === null || unit(b.sensor));
+}
+const backupFile = list => JSON.stringify({ format: 'sam-funktrainer-device-settings', version: 1, backups: list }, null, 1);
+
+function listBackups() {
+  const firsts = new Set(backups.map(pairKey).map(k => backups.findIndex(b => pairKey(b) === k)));
+  const button = (text, onclick, cls = '') => Object.assign(document.createElement('button'), { textContent: text, onclick, className: cls });
+  const rows = backups.map((b, i) => {
+    const tr = document.createElement('tr'), td = document.createElement('td');
+    td.append(
+      button('Restore…', () => restore(b), 'dangerBtn'),
+      button('Export', () => download(`sam-settings-${b.taken.slice(0, 19).replace(/[:T]/g, '-')}.json`, backupFile([b]), 'application/json')),
+      button('Delete', () => {
+        if (!confirm(`Delete the backup of ${new Date(b.taken).toLocaleString()}?`)) return;
+        backups.splice(i, 1); keep('samDeviceBackups', backups); listBackups();
+      }));
+    tr.append(Object.assign(document.createElement('td'), {
+      textContent: `${new Date(b.taken).toLocaleString()}: ${b.reason}${firsts.has(i) ? ' (first of this device)' : ''}; receiver ${b.receiver.serial}, sensor ${b.sensor?.serial ?? 'not reachable'}`,
+    }), td);
+    return tr;
+  }).reverse();
+  if (!rows.length) rows.push(Object.assign(document.createElement('tr'), { innerHTML: '<td>None yet. Connect the receiver to take the first one.</td>' }));
+  $('tBackups').replaceChildren(...rows);
+}
+
+function restore(b) {
+  if (!sam) return devStatus('Connect the receiver first.', true);
+  const writes = [], notes = [];
+  const plan = (kind, unit, now) => {
+    if (!unit) return;
+    if (!now) return notes.push(`The ${unitName(kind)} is not reachable now, so its part of the backup is skipped.`);
+    if (unit.serial !== now[0x95e]) notes.push(`This backup is from ${unitName(kind)} ${unit.serial}, but the connected one is ${now[0x95e]}.`);
+    for (const [k, v] of Object.entries(storedPart(unit.vars))) {
+      const nr = +k;
+      if (nr === 0 || v === null || now[nr] === undefined || now[nr] === null || now[nr] === v) continue;
+      if (!allowed(kind, nr, v)) { notes.push(`Skipped ${unitName(kind)} ${hex(nr)}: ${v} is outside the allowed range.`); continue; }
+      writes.push({ target: kind, nr, old: now[nr], value: v });
+    }
+  };
+  plan(SENSOR, b.sensor, sensorVars); // sensor first: it must still be reachable on the current channel
+  plan(RECEIVER, b.receiver, receiverVars);
+  if (!writes.length) return devStatus(['The device already has the settings of this backup.', ...notes].join(' '));
+  writeDevice(`Restore the settings of ${new Date(b.taken).toLocaleString()}`, writes, { note: notes.join(' ') });
+}
+
+$('bkNow').onclick = () => {
+  if (!receiverVars) return devStatus('Connect the receiver first.', true);
+  backup('manual', receiverVars, sensorVars, true);
+  devStatus('Backup taken.');
+};
+$('bkExport').onclick = () => download(`sam-settings-all-${new Date().toISOString().slice(0, 10)}.json`, backupFile(backups), 'application/json');
+$('bkImportBtn').onclick = () => $('bkImport').click();
+$('bkImport').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (data?.format !== 'sam-funktrainer-device-settings' || !Array.isArray(data.backups) || !data.backups.every(validBackup)) {
+      throw new Error('not a device settings file exported by this page');
+    }
+    const known = new Set(backups.map(b => b.taken + pairKey(b)));
+    const added = data.backups.filter(b => !known.has(b.taken + pairKey(b)));
+    backups.push(...added);
+    backups.sort((a, b) => a.taken.localeCompare(b.taken));
+    keep('samDeviceBackups', backups);
+    listBackups();
+    devStatus(`Imported ${added.length} backup${added.length === 1 ? '' : 's'}. Use "Restore…" to write one to the device.`);
+  } catch (err) {
+    devStatus(`Import failed: ${err.message}`, true);
+  }
+};
+
+// ---- device settings: sensitivity, channel, variable editor ------------------------------------
+$('sensApply').onclick = () => {
+  const s = sensorVars, v = Number($('sensNew').value);
+  if (!s) return devStatus('The sensor is not reachable.', true);
+  if (!Number.isInteger(v) || v < 0 || v > 100) return devStatus('Enter a whole number from 0 to 100.', true);
+  const writes = [{ target: SENSOR, nr: 0x66, old: s[0x66], value: v }];
+  if ($('sensStore').checked) writes.push({ target: SENSOR, nr: 2, old: s[2], value: v });
+  writeDevice('Change the shot detection sensitivity', writes.filter(w => w.old !== w.value), { danger: false });
+};
+
+$('chApply').onclick = () => {
+  const r = receiverVars, s = sensorVars, ch = Number($('chNew').value);
+  if (!r) return devStatus('Connect the receiver first.', true);
+  if (!s) return devStatus('The sensor must be reachable to change the channel. Try "Search for the sensor" first.', true);
+  writeDevice(`Change the radio channel to ${ch}`, [
+    { target: SENSOR, nr: 1, old: s[1], value: ch },
+    { target: SENSOR, nr: 0x65, old: s[0x65], value: ch, verify: false }, // the sensor is on the new channel from here on
+    { target: RECEIVER, nr: 1, old: r[1], value: ch },
+    { target: RECEIVER, nr: 0x65, old: r[0x65], value: ch },
+  ].filter(w => w.old !== w.value), {
+    note: 'Written in this order: sensor first, then receiver, as the original software does. If the sensor does not answer afterwards, use "Search for the sensor".',
+  });
+};
+
+$('chSearch').onclick = async () => {
+  if (!sam) return devStatus('Connect the receiver first.', true);
+  const orig = receiverVars?.[0x65];
+  let found = 0;
+  devStatus('Searching channels 1–4…');
+  streaming = false;
+  try {
+    await sam.stopStream().catch(e => { if (!(e instanceof NakError)) throw e; });
+    for (let ch = 1; ch <= 4 && !found; ch++) {
+      log(`WRITE receiver 0x0065 HF channel current: -> ${ch} (search)`);
+      await sam.writeVar(RECEIVER, 0x65, ch);
+      try { if (await sam.readVar(SENSOR, 0x65) === ch) found = ch; } catch (e) {
+        if (!(e instanceof NakError)) throw e;
+        if (e.code === 2) found = ch; // it answered, but is busy streaming
+      }
+    }
+    if (!found && orig) await sam.writeVar(RECEIVER, 0x65, orig);
+    devStatus(found
+      ? `Sensor found on channel ${found}. The receiver keeps this channel until it is unplugged${receiverVars?.[1] === found ? '' : `; to store it, use "Change channel" with ${found}`}.`
+      : 'The sensor did not answer on channels 1–4. Is it switched on and charged?', !found);
+  } catch (e) {
+    logError('search', e);
+    devStatus(`Search failed: ${e.message}`, true);
+  } finally {
+    await refresh();
+  }
+};
+
+/** One table per unit with an input for every stored variable that may be changed. */
+function renderEditor(id, kind, vars) {
+  if (!vars) { table(id, [[unitName(kind), sam ? 'not reachable' : 'not read']]); return; }
+  const rows = [];
+  for (let nr = 0; nr <= vars[0x952]; nr++) {
+    const tr = document.createElement('tr'), td = document.createElement('td'), v = vars[nr], l = LIMITS[kind][nr];
+    tr.append(Object.assign(document.createElement('th'), { textContent: `${unitName(kind)} ${hex(nr)} ${varName(kind, nr)}`, scope: 'row' }));
+    if (!l || v === null || v === undefined) td.textContent = v === null || v === undefined ? 'not in firmware' : `${formatVar(kind, nr, v)} (read only)`;
+    else {
+      const input = l.values
+        ? Object.assign(document.createElement('select'), { innerHTML: [...new Set([...l.values, v])].map(x => `<option>${x}</option>`).join('') })
+        : Object.assign(document.createElement('input'), { type: 'number', min: l.min, max: l.max, step: 1 });
+      input.value = v;
+      Object.assign(input.dataset, { kind, nr, old: v });
+      input.setAttribute('aria-label', `${unitName(kind)} ${varName(kind, nr)}`);
+      input.oninput = input.onchange = () => input.classList.toggle('changed', input.value !== String(v));
+      td.append(input, ` ${l.values ? l.values.join(', ') : `${l.min}…${l.max}`}`);
+    }
+    tr.append(td);
+    rows.push(tr);
+  }
+  $(id).replaceChildren(...rows);
+}
+$('resetVars').onclick = () => { renderEditor('eReceiver', RECEIVER, receiverVars); renderEditor('eSensor', SENSOR, sensorVars); };
+$('writeVars').onclick = () => {
+  const writes = [], bad = [];
+  for (const input of [...document.querySelectorAll('#eSensor [data-nr]'), ...document.querySelectorAll('#eReceiver [data-nr]')]) { // sensor first
+    const kind = +input.dataset.kind, nr = +input.dataset.nr, old = +input.dataset.old, value = Number(input.value);
+    if (value === old) continue;
+    if (!allowed(kind, nr, value)) bad.push(`${unitName(kind)} ${varName(kind, nr)}`);
+    else writes.push({ target: kind, nr, old, value });
+  }
+  if (bad.length) return devStatus(`Out of range: ${bad.join(', ')}.`, true);
+  const ch = kind => writes.find(w => w.target === kind && w.nr === 1)?.value ?? (kind === RECEIVER ? receiverVars : sensorVars)?.[1];
+  const note = ch(RECEIVER) !== ch(SENSOR)
+    ? `After these changes the stored channels differ (receiver ${ch(RECEIVER)}, sensor ${ch(SENSOR)}): after the next power-up they cannot talk to each other.`
+    : '';
+  writeDevice('Write changed variables', writes, { note });
+};
+
+// ---- calibration ---------------------------------------------------------------------------------
+const MARKS = [['centre', 0, 0], ['top', 0, -50], ['bottom', 0, 50], ['left', -50, 0], ['right', 50, 0]]; // mm at 10 m
+const activePageCal = () => (pageCal && sensorVars && pageCal.serial === sensorVars[0x95e] ? pageCal : null);
+
+/** Zoom and angle from the page calibration if there is one for this sensor, else from the sensor. */
+function applyCalibration() {
+  const pc = activePageCal();
+  if (sensorVars) {
+    cfg.zoomX = pc?.zoomX ?? sensorVars[0x0b];
+    cfg.zoomY = pc?.zoomY ?? sensorVars[0x0c];
+    sensorAngle = pc?.sensorAngle ?? sensorVars[8];
+  }
+  $('calPage').textContent = pc ? `This page uses its own calibration for sensor ${pc.serial} (zoom ${pc.zoomX}/${pc.zoomY}, angle ${pc.sensorAngle}°), not the values stored in the sensor.` : '';
+  $('calClear').hidden = !pageCal;
+  applySettings();
+}
+function calShowStep(extra = '') {
+  const [label] = MARKS[calib.points.length];
+  $('calStep').textContent = `Step ${calib.points.length + 1} of 5: aim at the ${label.toUpperCase()} mark, hold still, then Capture or shoot. ${extra}`;
+}
+function calButtons(running) {
+  $('calStart').disabled = running;
+  $('calCapture').disabled = $('calCancel').disabled = !running;
+  $('calUse').disabled = $('calWrite').disabled = !(calib?.fit);
+}
+$('calStart').onclick = () => {
+  if (!streaming || !sensorVars) return devStatus('Connect the receiver and switch the sensor on first.', true);
+  calib = { points: [] };
+  table('tCal', []);
+  calButtons(true);
+  calShowStep();
+};
+$('calCancel').onclick = () => { calib = null; $('calStep').textContent = 'Not running.'; table('tCal', []); calButtons(false); };
+function calCapture() {
+  if (!calib || calib.fit) return;
+  const now = performance.now(), recent = rawHist.filter(q => q.t > now - 500);
+  if (recent.length < 20) return calShowStep('The sensor did not see the target steadily for the last half second. Try again.');
+  const [label, X, Y] = MARKS[calib.points.length];
+  calib.points.push({ label, X, Y, rx: recent.reduce((s, q) => s + q.rx, 0) / recent.length, ry: recent.reduce((s, q) => s + q.ry, 0) / recent.length });
+  log(`CALIBRATION ${label}: raw ${calib.points.at(-1).rx.toFixed(5)} ${calib.points.at(-1).ry.toFixed(5)}`);
+  if (calib.points.length < MARKS.length) return calShowStep();
+  try { calib.fit = fitCalibration(calib.points); } catch (e) { calib = null; calButtons(false); $('calStep').textContent = `Calibration failed: ${e.message}. Start again.`; return; }
+  const f = calib.fit, mount = Number($('angle').value), worst = Math.max(...f.errors);
+  calib.sensorAngle = ((f.angle - mount) % 360 + 360) % 360;
+  table('tCal', [
+    ['rotation', `${f.angle}° = sensor ${calib.sensorAngle}° + mount ${mount}° (now ${cfg.angle}°)`],
+    ['zoom X / Y', `${f.zoomX} / ${f.zoomY} (now ${cfg.zoomX} / ${cfg.zoomY})`],
+    ['centre offset', `${f.offX.toFixed(2)} / ${f.offY.toFixed(2)} mm at 10 m`],
+    ...calib.points.map((p, i) => [`error at ${p.label}`, `${f.errors[i].toFixed(1)} mm`]),
+  ]);
+  $('calStep').textContent = worst > 5
+    ? `Done, but the error at one mark is ${worst.toFixed(1)} mm: probably not aimed at it when captured. Better start again.`
+    : 'Done. Use the result in this page only, or write it to the sensor.';
+  calButtons(false);
+}
+$('calCapture').onclick = calCapture;
+function calApplyOffsets() {
+  cfg.offX = calib.fit.offX; cfg.offY = calib.fit.offY;
+  calib = null;
+  table('tCal', []);
+  $('calStep').textContent = 'Not running.';
+  calButtons(false);
+  applyCalibration();
+}
+$('calUse').onclick = () => {
+  const f = calib.fit;
+  pageCal = { serial: sensorVars?.[0x95e] ?? null, zoomX: f.zoomX, zoomY: f.zoomY, sensorAngle: calib.sensorAngle };
+  keep('samPageCalibration', pageCal);
+  calApplyOffsets();
+  devStatus('Calibration in use in this page. Nothing was written to the sensor.');
+};
+$('calWrite').onclick = async () => {
+  const s = sensorVars, f = calib.fit;
+  const ok = await writeDevice('Write the calibration to the sensor', [
+    { target: SENSOR, nr: 8, old: s[8], value: calib.sensorAngle },
+    { target: SENSOR, nr: 0x0b, old: s[0x0b], value: f.zoomX },
+    { target: SENSOR, nr: 0x0c, old: s[0x0c], value: f.zoomY },
+  ].filter(w => w.old !== w.value), { note: 'The centre offset is kept in this page, as in the original software.' });
+  if (!ok) return;
+  pageCal = null;
+  localStorage.removeItem('samPageCalibration');
+  calApplyOffsets();
+};
+$('calClear').onclick = () => {
+  pageCal = null;
+  localStorage.removeItem('samPageCalibration');
+  applyCalibration();
+  devStatus('Page calibration removed; the sensor\'s own values are used.');
+};
+
+// ---- connection -------------------------------------------------------------------------------
+/** Stop the stream, read every variable of both units, restart the stream if the sensor answers. */
+async function refresh() {
+  if (!sam) return;
+  try {
+    // always: the sensor may still stream although this page did not start it (other session, channel search)
+    await sam.stopStream().catch(e => { if (!(e instanceof NakError)) throw e; });
+    streaming = false;
+    receiverVars = await sam.readAll(RECEIVER);
+    sensorVars = await sam.readAll(SENSOR);
+    showDevice();
+    backup('automatic');
+    if (!sensorVars) return status('Receiver connected, but the sensor does not answer. Switch it on (same radio channel), then press "Re-read variables".', true);
+    applyCalibration();
+    tracker = new Tracker(cfg);
+    lastT = performance.now();
+    await sam.startStream();
+    streaming = true;
+  } catch (e) {
+    logError('re-read', e);
+    status(`Error: ${e.message}`, true);
+  } finally {
+    emitStatus();
+  }
+}
+
+function disconnected(text, warn) {
+  sam = null; streaming = false;
+  $('connect').textContent = 'Connect';
+  status(text, warn);
+  showDevice();
+  emitStatus();
+}
+
+$('connect').onclick = async () => {
+  try {
+    if (sam) { const old = sam; await old.close(); log('--- disconnected'); return disconnected('Disconnected.'); }
+    if (!navigator.usb) return status('This browser cannot talk to USB devices. Use Chrome or Edge (not Firefox or Safari), and open the page over https.', true);
+    dev = await navigator.usb.requestDevice({ filters: [USB_FILTER] });
+    status('Connecting…');
+    log(`--- connecting to ${dev.productName} ${dev.serialNumber}`);
+    const t = new Trainer(dev, onSample, onPacket);
+    t.onError = e => { logError('USB', e); disconnected('Connection to the receiver lost.', true); };
+    await t.open();
+    sam = t;
+    $('connect').textContent = 'Disconnect';
+    await refresh();
+  } catch (e) {
+    if (e.name === 'NotFoundError') return; // chooser cancelled
+    if (e.name === 'SecurityError' || e.name === 'NetworkError' || /claim|access/i.test(e.message)) {
+      logError('connect', e);
+      return status(`Cannot open the receiver (${e.message}). Close other programs or tabs that use it and replug it. On Windows, install the WinUSB driver (see "How to use").`, true);
+    }
+    logError('connect', e);
+    status(`Error: ${e.message}`, true);
+  }
+};
+$('refresh').onclick = refresh;
+
+$('center').onclick = () => {
+  const { shots } = session;
+  if (!shots.length) return;
+  const mx = shots.reduce((a, s) => a + s.x, 0) / shots.length, my = shots.reduce((a, s) => a + s.y, 0) / shots.length;
+  cfg.offX += mx / cfg.scale; cfg.offY += my / cfg.scale; // offsets are kept in mm at 10 m
+  for (const s of shots) {
+    s.x = r2(s.x - mx); s.y = r2(s.y - my);
+    for (const p of s.trace) { p[1] = r2(p[1] - mx); p[2] = r2(p[2] - my); }
+  }
+  trace = [];
+  applySettings();
+  save();
+};
+$('clearLog').onclick = () => { logLines = []; logDirty = true; };
+$('copyLog').onclick = () => navigator.clipboard.writeText(logLines.join('\n'));
+
+if (!localStorage.samHelpSeen) { $('help').open = true; localStorage.samHelpSeen = '1'; } // open once, for first-time users
+applySettings();
+listSessions().catch(e => status(`Saved sessions are unavailable: ${e.message}`, true));
+listBackups();
+showDevice();
+showTech();
+draw();
+// ponytail: USB reading runs on the page thread; move Trainer into a Web Worker if background tabs must keep recording.
+</script>
+</html>
